@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PromotionsModule } from './promotions/promotions.module';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     // Modules fonctionnels (à ajouter au fur et à mesure)
     // AuthModule,
     // UsersModule,
-    // PromotionsModule,
+    PromotionsModule,
     // SpacesModule,
     // WorksModule,
     // SubmissionsModule,
