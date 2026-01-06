@@ -8,26 +8,31 @@ import Login from "@/pages/auth/Login";
 // Director
 import DirectorLayout from "@/pages/director/DirectorLayout";
 import DirectorDashboard from "@/pages/director/Dashboard";
-
-// Users
 import UsersList from "@/pages/director/users/UsersList";
 import CreateUser from "@/pages/director/users/CreateUser";
 import EditUser from "@/pages/director/users/EditUser";
-
-// Promotions
 import PromotionsList from "@/pages/director/promotions/PromotionsList";
 import CreatePromotion from "@/pages/director/promotions/CreatePromotion";
 import EditPromotion from "@/pages/director/promotions/EditPromotion";
-
-// Spaces
 import SpacesList from "@/pages/director/spaces/SpacesList";
 import CreateSpace from "@/pages/director/spaces/CreateSpace";
 import EditSpace from "@/pages/director/spaces/EditSpace";
 import EnrollStudents from "@/pages/director/spaces/EnrollStudents";
-
-// Other
 import InactiveAccounts from "@/pages/director/InactiveAccounts";
 import Reports from "@/pages/director/reports/GeneralDomain";
+
+// Trainer
+import TrainerLayout from "@/pages/trainer/TrainerLayout";
+import TrainerDashboard from "@/pages/trainer/Dashboard";
+import MySpaces from "@/pages/trainer/spaces/MySpaces";
+import WorksList from "@/pages/trainer/works/WorksList";
+import CreateWork from "@/pages/trainer/works/CreateWork";
+import EditWork from "@/pages/trainer/works/EditWork";
+import GroupsList from "@/pages/trainer/groups/GroupsList";
+import CreateGroup from "@/pages/trainer/groups/CreateGroup";
+import AssignmentsList from "@/pages/trainer/assignments/AssignmentsList";
+import SubmissionsList from "@/pages/trainer/submissions/SubmissionsList";
+import EvaluateWork from "@/pages/trainer/evaluation/EvaluateWork";
 
 function RootLayout() {
   return (
@@ -58,26 +63,38 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: "dashboard", element: <DirectorDashboard /> },
-
-          // Users
           { path: "users", element: <UsersList /> },
           { path: "users/create", element: <CreateUser /> },
           { path: "users/edit/:id", element: <EditUser /> },
-
-          // Promotions
           { path: "promotions", element: <PromotionsList /> },
           { path: "promotions/create", element: <CreatePromotion /> },
           { path: "promotions/edit/:id", element: <EditPromotion /> },
-
-          // Spaces
           { path: "spaces", element: <SpacesList /> },
           { path: "spaces/create", element: <CreateSpace /> },
           { path: "spaces/edit/:id", element: <EditSpace /> },
           { path: "spaces/:id/enroll", element: <EnrollStudents /> },
-
-          // Other
           { path: "inactive-accounts", element: <InactiveAccounts /> },
           { path: "reports", element: <Reports /> },
+        ],
+      },
+      {
+        path: "/trainer",
+        element: (
+          <ProtectedRoute allowedRoles={["FORMATEUR"]}>
+            <TrainerLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { path: "dashboard", element: <TrainerDashboard /> },
+          { path: "spaces", element: <MySpaces /> },
+          { path: "works", element: <WorksList /> },
+          { path: "works/create", element: <CreateWork /> },
+          { path: "works/edit/:id", element: <EditWork /> },
+          { path: "groups", element: <GroupsList /> },
+          { path: "groups/create", element: <CreateGroup /> },
+          { path: "assignments", element: <AssignmentsList /> },
+          { path: "submissions", element: <SubmissionsList /> },
+          { path: "submissions/evaluate/:id", element: <EvaluateWork /> },
         ],
       },
       {
