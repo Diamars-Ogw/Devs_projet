@@ -1,3 +1,7 @@
+// ============================================
+// SERVICE API - GESTION DES ESPACES PÉDAGOGIQUES
+// ============================================
+
 import api from './api';
 
 const spaceService = {
@@ -19,9 +23,9 @@ const spaceService = {
     return response.data;
   },
 
-  // Met à jour un espace
+  // Met à jour un espace (PATCH au lieu de PUT)
   async update(id, spaceData) {
-    const response = await api.put(`/spaces/${id}`, spaceData);
+    const response = await api.patch(`/spaces/${id}`, spaceData);
     return response.data;
   },
 
@@ -31,9 +35,19 @@ const spaceService = {
     return response.data;
   },
 
-  // Inscrit des étudiants dans un espace
+  // Inscrit des étudiants dans un espace (Mode individuel)
   async enrollStudents(id, studentIds) {
-    const response = await api.post(`/spaces/${id}/enroll`, { studentIds });
+    const response = await api.post(`/spaces/${id}/enroll`, {
+      etudiant_ids: studentIds, // ⚠️ Backend attend "etudiant_ids"
+    });
+    return response.data;
+  },
+
+  // Inscrit toute une promotion (Mode masse)
+  async enrollPromotion(espaceId, promotionId) {
+    const response = await api.post(`/spaces/${espaceId}/enroll-promotion`, {
+      promotion_id: promotionId,
+    });
     return response.data;
   },
 
@@ -49,15 +63,31 @@ const spaceService = {
     return response.data;
   },
 
-  // Ajoute un formateur secondaire
-  async addSecondaryTeacher(spaceId, teacherId) {
-    const response = await api.post(`/spaces/${spaceId}/teachers/${teacherId}`);
+  // Récupère les statistiques des espaces
+  async getStatistics() {
+    const response = await api.get('/spaces/statistics');
     return response.data;
   },
 
-  // Retire un formateur secondaire
-  async removeSecondaryTeacher(spaceId, teacherId) {
-    const response = await api.delete(`/spaces/${spaceId}/teachers/${teacherId}`);
+  // ============================================
+  // GESTION DES MATIÈRES
+  // ============================================
+
+  // Récupère toutes les matières
+  async getAllMatieres() {
+    const response = await api.get('/spaces/matieres/all');
+    return response.data;
+  },
+
+  // Récupère une matière par ID
+  async getMatiereById(id) {
+    const response = await api.get(`/spaces/matieres/${id}`);
+    return response.data;
+  },
+
+  // Crée une nouvelle matière
+  async createMatiere(matiereData) {
+    const response = await api.post('/spaces/matieres', matiereData);
     return response.data;
   },
 };

@@ -1,77 +1,158 @@
+// ============================================
+// SERVICE API - GESTION DES UTILISATEURS
+// ============================================
+
 import api from './api';
 
+/**
+ * SERVICE UTILISATEURS
+ * Gère toutes les opérations CRUD sur les utilisateurs
+ */
 const userService = {
-  // Récupère tous les utilisateurs (avec filtres optionnels)
-  async getAll(filters = {}) {
-    const response = await api.get('/users', { params: filters });
+  /**
+   * Récupérer tous les utilisateurs
+   * @param {string} role - Filtrer par rôle (optionnel)
+   * @returns {Promise<Array>}
+   */
+  getAll: async (role = null) => {
+    const url = role ? `/users?role=${role}` : '/users';
+    const response = await api.get(url);
     return response.data;
   },
 
-  // Récupère un utilisateur par ID
-  async getById(id) {
+  /**
+   * Récupérer un utilisateur par ID
+   * @param {number} id - ID de l'utilisateur
+   * @returns {Promise<Object>}
+   */
+  getById: async (id) => {
     const response = await api.get(`/users/${id}`);
     return response.data;
   },
 
-  // Crée un nouvel utilisateur
-  async create(userData) {
-    const response = await api.post('/users', userData);
+  /**
+   * Créer un nouvel utilisateur
+   * @param {Object} userData - Données de l'utilisateur
+   * @returns {Promise<Object>}
+   */
+  create: async (userData) => {
+    try {
+      const response = await api.post('/users', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur create user:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Mettre à jour un utilisateur
+   * @param {number} id - ID de l'utilisateur
+   * @param {Object} userData - Données à mettre à jour
+   * @returns {Promise<Object>}
+   */
+  update: async (id, userData) => {
+    const response = await api.patch(`/users/${id}`, userData);
     return response.data;
   },
 
-  // Met à jour un utilisateur
-  async update(id, userData) {
-    const response = await api.put(`/users/${id}`, userData);
-    return response.data;
+  /**
+   * Supprimer un utilisateur
+   * @param {number} id - ID de l'utilisateur
+   * @returns {Promise<Object>}
+   */
+  delete: async (id) => {
+    try {
+      const response = await api.delete(`/users/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur delete user:', error);
+      throw error;
+    }
   },
 
-  // Supprime un utilisateur
-  async delete(id) {
-    const response = await api.delete(`/users/${id}`);
-    return response.data;
+  /**
+   * Récupérer les statistiques des utilisateurs
+   * @returns {Promise<Object>}
+   */
+  getStatistics: async () => {
+    try {
+      const response = await api.get('/users/statistics');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur getStatistics:', error);
+      throw error;
+    }
   },
 
-  // Récupère les utilisateurs inactifs
-  async getInactive() {
-    const response = await api.get('/users/inactive');
-    return response.data;
+  /**
+   * Récupérer les comptes inactifs
+   * @returns {Promise<Array>}
+   */
+  getInactiveAccounts: async () => {
+    try {
+      const response = await api.get('/users/inactive');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur getInactiveAccounts:', error);
+      throw error;
+    }
   },
 
-  // Envoie un email de relance à un utilisateur
-  async sendReminder(userId) {
-    const response = await api.post(`/users/${userId}/send-reminder`);
-    return response.data;
+  /**
+   * Récupérer tous les étudiants
+   * @returns {Promise<Array>}
+   */
+  getStudents: async () => {
+    try {
+      const response = await api.get('/users?role=ETUDIANT');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur getStudents:', error);
+      throw error;
+    }
   },
 
-  // Envoie des emails de relance groupés
-  async sendBulkReminders(userIds) {
-    const response = await api.post('/users/send-bulk-reminders', { userIds });
-    return response.data;
+  /**
+   * Récupérer tous les formateurs
+   * @returns {Promise<Array>}
+   */
+  getFormateurs: async () => {
+    try {
+      const response = await api.get('/users?role=FORMATEUR');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur getFormateurs:', error);
+      throw error;
+    }
   },
 
-  // Active un compte utilisateur
-  async activateAccount(userId) {
-    const response = await api.post(`/users/${userId}/activate`);
-    return response.data;
+  /**
+   * Récupérer tous les directeurs
+   * @returns {Promise<Array>}
+   */
+  getDirecteurs: async () => {
+    try {
+      const response = await api.get('/users?role=DIRECTEUR');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur getDirecteurs:', error);
+      throw error;
+    }
   },
 
-  // Désactive un compte utilisateur
-  async deactivateAccount(userId) {
-    const response = await api.post(`/users/${userId}/deactivate`);
-    return response.data;
-  },
-
-  // Récupère tous les formateurs
-  async getTeachers() {
-    const response = await api.get('/users/teachers');
-    return response.data;
-  },
-
-  // Récupère tous les étudiants (filtrés par promotion optionnellement)
-  async getStudents(promotionId = null) {
-    const params = promotionId ? { promotionId } : {};
-    const response = await api.get('/users/students', { params });
-    return response.data;
+  /**
+   * Récupérer tous les techniciens
+   * @returns {Promise<Array>}
+   */
+  getTechniciens: async () => {
+    try {
+      const response = await api.get('/users?role=TECHNICIEN');
+      return response.data;
+    } catch (error) {
+      console.error('Erreur getTechniciens:', error);
+      throw error;
+    }
   },
 };
 

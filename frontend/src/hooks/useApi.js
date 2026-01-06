@@ -76,3 +76,54 @@ export const useMutation = () => {
 
   return { mutate, loading, error, data };
 };
+
+/**
+ * Hook alternatif avec execute (compatible avec les deux syntaxes)
+ * @returns {Object} - { data, loading, error, execute, reset }
+ */
+export const useApiExecute = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const execute = useCallback(async (apiFunc) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const result = await apiFunc;
+      
+      setData(result);
+      setLoading(false);
+      
+      return result;
+    } catch (err) {
+      console.error('Erreur API:', err);
+      
+      const errorMessage = err.response?.data?.message 
+        || err.message 
+        || 'Une erreur est survenue';
+      
+      setError(errorMessage);
+      setLoading(false);
+      
+      throw err;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setData(null);
+    setError(null);
+    setLoading(false);
+  }, []);
+
+  return {
+    data,
+    loading,
+    error,
+    execute,
+    reset,
+  };
+};
+
+export default useApi;

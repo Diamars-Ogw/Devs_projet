@@ -1,87 +1,97 @@
 // ============================================
-// CONFIGURATION AXIOS PRINCIPALE
+// CONFIGURATION AXIOS POUR L'API
+// Fichier: src/services/api.js
 // ============================================
 
 import axios from 'axios';
 import { API_BASE_URL, STORAGE_KEYS } from '@/utils/constants';
 
-// Créer une instance Axios avec la config de base
+// Instance Axios configurée
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // 30 secondes
 });
 
-/**
- * INTERCEPTEUR DE REQUÊTE
- * Ajoute automatiquement le token JWT à chaque requête
- */
+// Intercepteur de requêtes - Ajoute le token JWT
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
     return config;
   },
   (error) => {
-    console.error('Erreur requête:', error);
     return Promise.reject(error);
   }
 );
 
-/**
- * INTERCEPTEUR DE RÉPONSE
- * Gère les erreurs globalement
- */
+// Intercepteur de réponses - Gestion des erreurs
 api.interceptors.response.use(
   (response) => {
-    // Retourne directement la réponse si tout va bien
     return response;
   },
   (error) => {
-    // Gestion des erreurs par code HTTP
-    if (error.response) {
-      const { status, data } = error.response;
-      
-      switch (status) {
-        case 401:
-          // Token expiré ou invalide → déconnexion
-          console.error('Session expirée');
-          localStorage.removeItem(STORAGE_KEYS.TOKEN);
-          localStorage.removeItem(STORAGE_KEYS.USER);
-          window.location.href = '/login';
-          break;
-          
-        case 403:
-          // Accès interdit
-          console.error('Accès interdit');
-          break;
-          
-        case 404:
-          // Ressource non trouvée
-          console.error('Ressource non trouvée');
-          break;
-          
-        case 500:
-          // Erreur serveur
-          console.error('Erreur serveur');
-          break;
-          
-        default:
-          console.error('Erreur API:', data);
-      }
-    } else if (error.request) {
-      // La requête a été envoyée mais pas de réponse
-      console.error('Pas de réponse du serveur');
-    } else {
-      // Erreur lors de la configuration de la requête
-      console.error('Erreur:', error.message);
+    // Erreur réseau
+    if (!error.response) {
+      console.error('Erreur réseau:', error);
+      return Promise.reject({
+        message: 'Erreur de connexion au serveur',
+        type: 'NETWORK_ERROR',
+      });
     }
-    
-    return Promise.reject(error);
+
+    // Token expiré ou invalide
+    if (error.response.status === 401) {
+      localStorage.removeItem(STORAGE_KEYS.TOKEN);
+      localStorage.removeItem(STORAGE_KEYS.USER);
+      
+      // Redirection vers login si pas déjà sur la page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      
+      return Promise.reject({
+        message: 'Session expirée, veuillez vous reconnecter',
+        type: 'UNAUTHORIZED',
+      });
+    }
+
+    // Accès refusé
+    if (error.response.status === 403) {
+      return Promise.reject({
+        message: 'Accès refusé',
+        type: 'FORBIDDEN',
+      });
+    }
+
+    // Ressource non trouvée
+    if (error.response.status === 404) {
+      return Promise.reject({
+        message: 'Ressource non trouvée',
+        type: 'NOT_FOUND',
+      });
+    }
+
+    // Erreur serveur
+    if (error.response.status >= 500) {
+      return Promise.reject({
+        message: 'Erreur serveur, veuillez réessayer',
+        type: 'SERVER_ERROR',
+      });
+    }
+
+    // Autres erreurs (validation, etc.)
+    return Promise.reject({
+      message: error.response.data?.message || 'Une erreur est survenue',
+      type: 'API_ERROR',
+      details: error.response.data,
+    });
   }
 );
 

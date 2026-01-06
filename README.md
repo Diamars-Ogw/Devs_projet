@@ -1,230 +1,158 @@
-# 🎓 EduPlatform
+# EduPlatform Backend
 
-Plateforme de gestion pédagogique complète pour établissements d'enseignement supérieur.
+Backend API pour la plateforme de gestion pédagogique EduPlatform.
 
-[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/react-18.x-blue.svg)](https://reactjs.org/)
-[![NestJS](https://img.shields.io/badge/nestjs-10.x-red.svg)](https://nestjs.com/)
+## 🚀 Technologies
 
----
+- **Framework**: NestJS
+- **Base de données**: SQLite avec TypeORM
+- **Validation**: class-validator
+- **Authentification**: JWT (à venir)
+- **Language**: TypeScript
 
-## 📋 Table des matières
-
-- [À propos](#à-propos)
-- [Technologies](#technologies)
-- [Prérequis](#prérequis)
-- [Installation](#installation)
-- [Démarrage rapide](#démarrage-rapide)
-- [Structure du projet](#structure-du-projet)
-- [Documentation](#documentation)
-- [Contribution](#contribution)
-- [Équipe](#équipe)
-
----
-
-## 📖 À propos
-
-**EduPlatform** est une plateforme web moderne permettant de gérer :
-
-- ✅ Comptes utilisateurs (Directeurs, Formateurs, Étudiants, Techniciens)
-- ✅ Promotions et espaces pédagogiques
-- ✅ Travaux individuels et collectifs
-- ✅ Livraisons et évaluations
-- ✅ Suivi des notes et statistiques
-
----
-
-## 🛠️ Technologies
-
-### Frontend
-
-- **React 18** - Bibliothèque UI
-- **Vite** - Build tool ultra-rapide
-- **React Router v6** - Navigation
-- **Tailwind CSS** - Framework CSS utility-first
-- **Axios** - Client HTTP
-- **Lucide React** - Icônes modernes
-
-### Backend
-
-- **NestJS** - Framework Node.js progressif
-- **TypeORM** - ORM TypeScript
-- **SQLite** - Base de données légère
-- **Passport JWT** - Authentification
-- **Bcrypt** - Hachage des mots de passe
-- **Swagger** - Documentation API
-
----
-
-## 📦 Prérequis
-
-Avant de commencer, assurez-vous d'avoir installé :
-
-- **Node.js** >= 18.x ([Télécharger](https://nodejs.org/))
-- **npm** >= 9.x (inclus avec Node.js)
-- **Git** ([Télécharger](https://git-scm.com/))
-
-Vérifier les versions :
+## 📦 Installation
 
 ```bash
-node --version   # Doit afficher v18.x ou supérieur
-npm --version    # Doit afficher 9.x ou supérieur
-git --version    # Doit afficher 2.x ou supérieur
-```
-
----
-
-## 🚀 Installation
-
-### 1. Cloner le repository
-
-```bash
-git clone https://github.com/votre-organisation/eduplatform.git
-cd eduplatform
-```
-
-### 2. Installation Backend
-
-```bash
-cd backend
-
 # Installer les dépendances
 npm install
 
-# Copier le fichier d'environnement
-cp .env.example .env
-
-# Créer la base de données
-npm run db:create
-
-# (Optionnel) Insérer des données de test
-# npm run db:seed
-```
-
-### 3. Installation Frontend
-
-```bash
-cd ../frontend
-
-# Installer les dépendances
-npm install
-
-# Copier le fichier d'environnement
+# Créer le fichier .env
 cp .env.example .env
 ```
 
----
-
-## ▶️ Démarrage rapide
-
-### Démarrer le Backend (Terminal 1)
+## 🗄️ Base de données
 
 ```bash
-cd backend
+# Créer la base de données (la structure sera créée automatiquement par TypeORM)
+# Assurez-vous que le dossier database/ existe
+mkdir -p database
+
+# Insérer les données de test
+sqlite3 database/eduplatform.db < database/seed.sql
+```
+
+## 🏃 Lancement
+
+```bash
+# Mode développement
 npm run start:dev
+
+# Mode production
+npm run build
+npm run start:prod
 ```
 
-Le serveur démarre sur : **http://localhost:3000**  
-Documentation API : **http://localhost:3000/api/docs**
+Le serveur démarre sur `http://localhost:5000`
 
-### Démarrer le Frontend (Terminal 2)
+## 📚 API Endpoints
 
-```bash
-cd frontend
-npm run dev
-```
+### Authentification
+- `POST /api/auth/login` - Connexion
+- `POST /api/auth/logout` - Déconnexion
 
-L'application démarre sur : **http://localhost:5173**
+### Utilisateurs
+- `GET /api/users` - Liste des utilisateurs
+- `GET /api/users/:id` - Détails d'un utilisateur
+- `POST /api/users` - Créer un utilisateur
+- `PATCH /api/users/:id` - Modifier un utilisateur
+- `DELETE /api/users/:id` - Supprimer un utilisateur
+- `GET /api/users/statistics` - Statistiques utilisateurs
+- `GET /api/users/inactive` - Comptes inactifs
 
----
+### Promotions
+- `GET /api/promotions` - Liste des promotions
+- `GET /api/promotions/:id` - Détails d'une promotion
+- `POST /api/promotions` - Créer une promotion
+- `PATCH /api/promotions/:id` - Modifier une promotion
+- `DELETE /api/promotions/:id` - Supprimer une promotion
+- `GET /api/promotions/:id/students` - Étudiants d'une promotion
+- `GET /api/promotions/statistics` - Statistiques promotions
 
-## 📁 Structure du projet
+### Espaces pédagogiques
+- `GET /api/spaces` - Liste des espaces
+- `GET /api/spaces/:id` - Détails d'un espace
+- `POST /api/spaces` - Créer un espace
+- `PATCH /api/spaces/:id` - Modifier un espace
+- `DELETE /api/spaces/:id` - Supprimer un espace
+- `GET /api/spaces/:id/students` - Étudiants inscrits
+- `POST /api/spaces/:id/enroll` - Inscrire des étudiants
+- `POST /api/spaces/:id/enroll-promotion` - Inscrire une promotion
+- `DELETE /api/spaces/:espaceId/students/:etudiantId` - Désinscrire un étudiant
+- `GET /api/spaces/statistics` - Statistiques espaces
 
-```
-eduplatform/
-├── frontend/              # Application React
-│   ├── src/
-│   │   ├── components/    # Composants réutilisables
-│   │   ├── pages/         # Pages par rôle
-│   │   ├── services/      # Services API
-│   │   └── routes/        # Configuration routes
-│   └── package.json
-│
-├── backend/               # API NestJS
-│   ├── src/
-│   │   ├── auth/          # Module authentification
-│   │   ├── users/         # Module utilisateurs
-│   │   ├── promotions/    # Module promotions
-│   │   ├── spaces/        # Module espaces
-│   │   └── ...
-│   ├── database/          # Base SQLite + scripts SQL
-│   └── package.json
-│
-├── docs/                  # Documentation
-└── README.md
-```
+### Matières
+- `GET /api/spaces/matieres/all` - Liste des matières
+- `GET /api/spaces/matieres/:id` - Détails d'une matière
+- `POST /api/spaces/matieres` - Créer une matière
 
-Voir les README spécifiques pour plus de détails :
-
-- [Frontend README](./frontend/README.md)
-- [Backend README](./backend/README.md)
-- [Database README](./backend/database/README.md)
-
----
-
-## 📖 Documentation
-
-- 📘 [Guide de contribution](./CONTRIBUTING.md)
-- 📗 [Documentation API](./docs/API.md)
-- 📙 [Modèle de données](./docs/DATABASE.md)
-- 📕 [Guide de déploiement](./docs/DEPLOYMENT.md)
-
----
-
-## 🤝 Contribution
-
-Nous suivons un workflow Git strict. Consultez [CONTRIBUTING.md](./CONTRIBUTING.md) pour :
-
-- Convention de nommage des branches
-- Format des commits
-- Processus de Pull Request
-- Standards de code
-
-### Workflow rapide
-
-```bash
-# 1. Créer une branche depuis develop
-git checkout develop
-git pull origin develop
-git checkout -b feature/US2.1-creation-formateur
-
-# 2. Faire vos modifications
-git add .
-git commit -m "feat(users): ajout création formateur (US2.1)"
-
-# 3. Pousser et créer une PR
-git push origin feature/US2.1-creation-formateur
-```
-
----
+### Évaluations
+- `GET /api/evaluations` - Liste des évaluations
+- `GET /api/evaluations/:id` - Détails d'une évaluation
+- `PATCH /api/evaluations/:id/modify` - Modifier une évaluation (Directeur)
+- `GET /api/evaluations/:id/history` - Historique des modifications
+- `GET /api/evaluations/statistics` - Statistiques évaluations
 
 ## 🧪 Tests
 
-### Backend
-
 ```bash
-cd backend
-npm run test              # Tests unitaires
-npm run test:e2e          # Tests end-to-end
-npm run test:cov          # Couverture de code
+# Tests unitaires
+npm run test
+
+# Tests e2e
+npm run test:e2e
+
+# Couverture
+npm run test:cov
 ```
 
-### Frontend
+## 📝 Données de test
 
-```bash
-cd frontend
-npm run test              # Tests unitaires
+Le fichier `database/seed.sql` contient des données de test :
+
+**Directeur:**
+- Email: jean.dupont@academie.fr
+- Mot de passe: password123
+
+**Formateurs:**
+- sophie.martin@academie.fr
+- julie.petit@academie.fr
+- jean.martin@academie.fr
+
+**Étudiants:**
+- marie.durand@academie.fr (actif)
+- pierre.bernard@academie.fr (inactif)
+- laura.roux@academie.fr (inactif)
+
+Tous utilisent le même mot de passe: `password123`
+
+## 🏗️ Structure du projet
+
+```
+backend/
+├── src/
+│   ├── auth/              # Authentification
+│   ├── users/             # Gestion utilisateurs
+│   ├── promotions/        # Gestion promotions
+│   ├── spaces/            # Espaces pédagogiques
+│   ├── evaluations/       # Évaluations
+│   ├── common/            # Éléments communs
+│   │   ├── decorators/
+│   │   ├── filters/
+│   │   └── pipes/
+│   ├── config/            # Configuration
+│   ├── app.module.ts
+│   └── main.ts
+├── database/              # Base de données SQLite
+└── uploads/               # Fichiers uploadés
 ```
 
----
+## 🔒 Sécurité
+
+- Mots de passe hashés avec bcrypt
+- Validation des données avec class-validator
+- Protection CORS configurée
+- Variables d'environnement pour les secrets
+
+## 📄 Licence
+
+MIT

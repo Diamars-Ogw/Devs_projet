@@ -1,3 +1,7 @@
+// ============================================
+// SERVICE API - GESTION DES PROMOTIONS
+// ============================================
+
 import api from './api';
 
 const promotionService = {
@@ -19,9 +23,9 @@ const promotionService = {
     return response.data;
   },
 
-  // Met à jour une promotion
+  // Met à jour une promotion (PATCH au lieu de PUT)
   async update(id, promotionData) {
-    const response = await api.put(`/promotions/${id}`, promotionData);
+    const response = await api.patch(`/promotions/${id}`, promotionData);
     return response.data;
   },
 
@@ -37,9 +41,9 @@ const promotionService = {
     return response.data;
   },
 
-  // Récupère les statistiques d'une promotion
-  async getStats(id) {
-    const response = await api.get(`/promotions/${id}/stats`);
+  // Récupère les statistiques des promotions
+  async getStatistics() {
+    const response = await api.get('/promotions/statistics');
     return response.data;
   },
 };
