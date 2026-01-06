@@ -33,6 +33,17 @@ import CreateGroup from "@/pages/trainer/groups/CreateGroup";
 import AssignmentsList from "@/pages/trainer/assignments/AssignmentsList";
 import SubmissionsList from "@/pages/trainer/submissions/SubmissionsList";
 import EvaluateWork from "@/pages/trainer/evaluation/EvaluateWork";
+import AssignIndividual from "@/pages/trainer/assignments/AssignIndividual";
+import AssignGroup from "@/pages/trainer/assignments/AssignGroup";
+
+// Student
+import StudentLayout from "@/pages/student/StudentLayout";
+import StudentDashboard from "@/pages/student/Dashboard";
+import StudentSpaces from "@/pages/student/spaces/MySpaces";
+import MyWorks from "@/pages/student/works/MyWorks";
+import SubmitWork from "@/pages/student/submit/SubmitWork";
+import MyGrades from "@/pages/student/grades/MyGrades";
+import GradesHistory from "@/pages/student/grades/GradesHistory";
 
 function RootLayout() {
   return (
@@ -95,6 +106,25 @@ export const router = createBrowserRouter([
           { path: "assignments", element: <AssignmentsList /> },
           { path: "submissions", element: <SubmissionsList /> },
           { path: "submissions/evaluate/:id", element: <EvaluateWork /> },
+          { path: "assignments/individual", element: <AssignIndividual /> },
+          { path: "assignments/group", element: <AssignGroup /> },
+        ],
+      },
+
+      {
+        path: "/student",
+        element: (
+          <ProtectedRoute allowedRoles={["ETUDIANT"]}>
+            <StudentLayout />
+          </ProtectedRoute>
+        ),
+        children: [
+          { path: "dashboard", element: <StudentDashboard /> },
+          { path: "spaces", element: <StudentSpaces /> },
+          { path: "works", element: <MyWorks /> },
+          { path: "submit/:id", element: <SubmitWork /> },
+          { path: "grades", element: <MyGrades /> },
+          { path: "grades/history", element: <GradesHistory /> },
         ],
       },
       {
