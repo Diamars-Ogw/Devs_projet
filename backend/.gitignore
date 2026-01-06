@@ -34,19 +34,17 @@ lerna-debug.log*
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Database
+database/*.db
+database/*.db-journal
+
 # Environment
 .env
 .env.local
-.env.*.local
-
-# Database
-/database/*.db
-/database/*.db-journal
-!/database/schema.sql
-!/database/seed.sql
-!/database/.gitkeep
-
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Uploads
-/uploads/*
-!/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep

@@ -1,35 +1,31 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { UsersModule } from './users/users.module';
+import { PromotionsModule } from './promotions/promotions.module';
+import { SpacesModule } from './spaces/spaces.module';
+import { EvaluationsModule } from './evaluations/evaluations.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
-    // Configuration globale
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
     }),
-
-    // Configuration TypeORM avec SQLite
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: process.env.DATABASE_PATH || './database/eduplatform.db',
+      database: 'database/eduplatform.db',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.DATABASE_SYNCHRONIZE === 'true',
-      logging: process.env.DATABASE_LOGGING === 'true',
+      synchronize: false,
+      logging: true,
     }),
-
-    // Modules fonctionnels (à ajouter au fur et à mesure)
-    // AuthModule,
-    // UsersModule,
-    // PromotionsModule,
-    // SpacesModule,
-    // WorksModule,
-    // SubmissionsModule,
-    // EvaluationsModule,
-    // EmailsModule,
+    AuthModule,
+    UsersModule,
+    PromotionsModule,
+    SpacesModule,
+    EvaluationsModule,
   ],
-  controllers: [],
-  providers: [],
+  controllers: [AppController],
 })
 export class AppModule {}
