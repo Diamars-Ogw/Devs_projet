@@ -8,7 +8,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS compte (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
-    mot_de_passe TEXT NOT NULL,
+    mot_de_passe TEXT,
     role TEXT NOT NULL CHECK(role IN ('DIRECTEUR', 'FORMATEUR', 'ETUDIANT', 'TECHNICIEN')),
     est_actif INTEGER DEFAULT 0 CHECK(est_actif IN (0, 1)),
     premiere_connexion INTEGER DEFAULT 1 CHECK(premiere_connexion IN (0, 1)),
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS etudiant (
     genre TEXT,
     telephone TEXT,
     date_inscription DATE DEFAULT CURRENT_DATE,
-    annee_inscription INTEGER,
+    annee_inscription INTEGER, 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (compte_id) REFERENCES compte(id) ON DELETE CASCADE,
