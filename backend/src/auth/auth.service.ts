@@ -1,78 +1,60 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { Compte, UserRole } from '../users/entities/compte.entity';
+import { Compte } from '../users/entities/compte.entity';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(Compte)
     private compteRepository: Repository<Compte>,
+    private jwtService: JwtService,
   ) {}
 
-  async login(email: string, password: string) {
-    // Pour le moment, utilisons des données factices
-    const fakeUsers = [
-      {
-        id: 1,
-        email: 'jean.dupont@academie.fr',
-        role: 'DIRECTEUR',
-        nom: 'Dupont',
-        prenom: 'Jean',
-      },
-      {
-        id: 2,
-        email: 'sophie.martin@academie.fr',
-        role: 'FORMATEUR',
-        nom: 'Martin',
-        prenom: 'Sophie',
-      },
-      {
-        id: 3,
-        email: 'marie.durand@academie.fr',
-        role: 'ETUDIANT',
-        nom: 'Durand',
-        prenom: 'Marie',
-        matricule: 'ETU2024001',
-      },
-    ];
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
 
-    const user = fakeUsers.find((u) => u.email === email);
-
-    if (!user) {
-      return null;
-    }
-
-    // Simuler une connexion réussie
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        nom: user.nom,
-        prenom: user.prenom,
-      },
-      token: 'fake-jwt-token-' + user.id,
-    };
-  }
-
-  async validateUser(email: string, password: string) {
+    // Trouver le compte
     const compte = await this.compteRepository.findOne({
       where: { email },
       relations: ['directeur', 'formateur', 'etudiant', 'technicien'],
     });
 
     if (!compte) {
-      return null;
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
+    // Vérifier le mot de passe
     const isPasswordValid = await bcrypt.compare(password, compte.mot_de_passe);
-
     if (!isPasswordValid) {
-      return null;
+      throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    return compte;
+    // Extraire les infos utilisateur
+    const userEntity = compte.directeur || compte.formateur || compte.etudiant || compte.technicien;
+    
+    const user = {
+      id: compte.id,
+      email: compte.email,
+      role: compte.role,
+      nom: userEntity?.nom || '',
+      prenom: userEntity?.prenom || '',
+    };
+
+    // Générer le token JWT
+    const payload = { sub: compte.id, email: compte.email, role: compte.role };
+    const access_token = this.jwtService.sign(payload);
+
+    // Mettre à jour la dernière connexion
+    compte.derniere_connexion = new Date();
+    await this.compteRepository.save(compte);
+
+    return {
+      access_token,
+      user,
+    };
   }
 }

@@ -1,5 +1,5 @@
 // ============================================
-// PAGE DE CONNEXION
+// PAGE DE CONNEXION - AVEC BACKEND RÉEL
 // Fichier: src/pages/auth/Login.jsx
 // ============================================
 
@@ -8,8 +8,29 @@ import { GraduationCap, Mail, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Card from "@/components/ui/Card";
-import { DEMO_ACCOUNTS } from "@/utils/constants";
+
+// 🔐 COMPTES RÉELS DE LA BASE DE DONNÉES
+// ⚠️ Ces comptes existent dans ta DB (backend/database/seed.sql)
+const DEMO_ACCOUNTS = [
+  {
+    email: "jean.dupont@academie.fr",
+    password: "password123", // Hash bcrypt dans la DB
+    role: "Directeur",
+    color: "blue",
+  },
+  {
+    email: "jean.martin@academie.fr",
+    password: "password123",
+    role: "Formateur",
+    color: "pink",
+  },
+  {
+    email: "marie.durand@academie.fr",
+    password: "password123",
+    role: "Étudiant",
+    color: "purple",
+  },
+];
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -36,10 +57,11 @@ const Login = () => {
     }
   };
 
-  // Fonction pour pré-remplir l'email (comptes de démo)
-  const fillEmail = (demoEmail) => {
-    setEmail(demoEmail);
-    setPassword("password123"); // Mot de passe par défaut pour la démo
+  // 🔹 Fonction pour pré-remplir EMAIL + MOT DE PASSE (comptes de démo)
+  const fillDemoAccount = (account) => {
+    setEmail(account.email);
+    setPassword(account.password); // ✅ Remplit aussi le mot de passe
+    setError(""); // Efface les erreurs précédentes
   };
 
   return (
@@ -127,7 +149,8 @@ const Login = () => {
               {DEMO_ACCOUNTS.map((account) => (
                 <button
                   key={account.email}
-                  onClick={() => fillEmail(account.email)}
+                  onClick={() => fillDemoAccount(account)}
+                  type="button"
                   className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all group"
                 >
                   <div className="text-left">

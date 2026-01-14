@@ -1,87 +1,40 @@
 // ============================================
-// SERVICE D'AUTHENTIFICATION (VERSION MOCK)
-// Fonctionne SANS backend pour le développement
+// SERVICE D'AUTHENTIFICATION - BACKEND RÉEL
+// Connexion à l'API NestJS
 // ============================================
 
+import api from "./api";
 import { STORAGE_KEYS } from "@/utils/constants";
-
-// Faux utilisateurs pour la démonstration
-const MOCK_USERS = [
-  {
-    id: 1,
-    email: "director@academie.fr",
-    password: "password123",
-    nom: "Dupont",
-    prenom: "Jean",
-    role: "DIRECTEUR",
-  },
-  {
-    id: 2,
-    email: "teacher@academie.fr",
-    password: "password123",
-    nom: "Martin",
-    prenom: "Sophie",
-    role: "FORMATEUR",
-  },
-  {
-    id: 3,
-    email: "student@academie.fr",
-    password: "password123",
-    nom: "Durand",
-    prenom: "Marie",
-    role: "ETUDIANT",
-  },
-];
 
 const authService = {
   /**
-   * Connexion MOCK (simule une API)
+   * Connexion avec le backend réel
+   * @param {string} email 
+   * @param {string} password 
+   * @returns {Promise<Object>} - { token, user }
    */
   async login(email, password) {
-    // Simule un délai réseau
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      // 🔥 APPEL API RÉEL au backend NestJS
+      const response = await api.post("/auth/login", {
+        email,
+        password,
+      });
 
-    // Cherche l'utilisateur
-    const user = MOCK_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
+      const { access_token, user } = response.data;
 
-    if (!user) {
-      throw {
-        response: {
-          data: {
-            message: "Email ou mot de passe incorrect",
-          },
-        },
+      // Sauvegarde dans localStorage
+      localStorage.setItem(STORAGE_KEYS.TOKEN, access_token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+
+      return {
+        token: access_token,
+        user,
       };
+    } catch (error) {
+      console.error("Erreur login:", error);
+      throw error;
     }
-
-    // Crée un faux token
-    const token = `mock-token-${user.id}-${Date.now()}`;
-
-    // Sauvegarde dans localStorage
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-    localStorage.setItem(
-      STORAGE_KEYS.USER,
-      JSON.stringify({
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        role: user.role,
-      })
-    );
-
-    return {
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        role: user.role,
-      },
-    };
   },
 
   /**
@@ -124,27 +77,48 @@ const authService = {
   },
 
   /**
-   * Récupération de mot de passe (MOCK)
+   * Récupération de mot de passe
    */
   async forgotPassword(email) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return { message: "Email de récupération envoyé" };
+    try {
+      const response = await api.post("/auth/forgot-password", { email });
+      return response.data;
+    } catch (error) {
+      console.error("Erreur forgot password:", error);
+      throw error;
+    }
   },
 
   /**
-   * Réinitialisation mot de passe (MOCK)
+   * Réinitialisation mot de passe
    */
   async resetPassword(token, newPassword) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return { message: "Mot de passe réinitialisé" };
+    try {
+      const response = await api.post("/auth/reset-password", {
+        token,
+        newPassword,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Erreur reset password:", error);
+      throw error;
+    }
   },
 
   /**
-   * Changement mot de passe (MOCK)
+   * Changement mot de passe
    */
   async changePassword(oldPassword, newPassword) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return { message: "Mot de passe changé" };
+    try {
+      const response = await api.post("/auth/change-password", {
+        oldPassword,
+        newPassword,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Erreur change password:", error);
+      throw error;
+    }
   },
 };
 
