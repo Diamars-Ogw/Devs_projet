@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
   Award,
@@ -20,83 +20,94 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
+import etudiantService from "@/services/etudiant.service";
 
 export default function MyGrades() {
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-
-  const [stats] = useState({
-    average: 15.8,
-    trend: "+0.8",
-    total: 12,
-    best: 18,
+  const [grades, setGrades] = useState([]);
+  const [stats, setStats] = useState({
+    average: 0,
+    trend: "+0.0",
+    total: 0,
+    best: 0,
   });
+  const [courseAverages, setCourseAverages] = useState([]);
+  const [gradeDistribution, setGradeDistribution] = useState([]);
 
-  const [grades] = useState([
-    {
-      id: 1,
-      work: "Projet React E-commerce",
-      course: "React Avancé",
-      grade: 18,
-      date: "2024-01-10",
-      comment:
-        "Excellent travail ! L'application est complète et bien structurée. Le code est propre et les bonnes pratiques sont respectées.",
-      teacher: "Sophie Martin",
-    },
-    {
-      id: 2,
-      work: "TP SQL Avancé",
-      course: "Base de données",
-      grade: 17,
-      date: "2024-01-08",
-      comment:
-        "Très bon niveau. Les requêtes sont optimisées et performantes. Attention à la gestion des index.",
-      teacher: "Jean Dupont",
-    },
-    {
-      id: 3,
-      work: "Mini-projet TypeScript",
-      course: "TypeScript",
-      grade: 16,
-      date: "2024-01-05",
-      comment:
-        "Bien ! Bonne utilisation des types. Quelques points à améliorer sur les interfaces génériques.",
-      teacher: "Marie Dubois",
-    },
-    {
-      id: 4,
-      work: "Application Next.js",
-      course: "Next.js",
-      grade: 15,
-      date: "2024-01-03",
-      comment:
-        "Correct. L'application fonctionne bien mais pourrait être optimisée. Pensez au SSR.",
-      teacher: "Pierre Laurent",
-    },
-    {
-      id: 5,
-      work: "TP Node.js API",
-      course: "Node.js API",
-      grade: 14,
-      date: "2023-12-28",
-      comment:
-        "Passable. L'API fonctionne mais manque de gestion d'erreurs robuste.",
-      teacher: "Sophie Martin",
-    },
-  ]);
+  useEffect(() => {
+    loadGrades();
+  }, []);
 
-  const courseAverages = [
-    { course: "React Avancé", average: 16.5, count: 3 },
-    { course: "TypeScript", average: 17.2, count: 4 },
-    { course: "Node.js API", average: 15.0, count: 2 },
-    { course: "Next.js", average: 14.8, count: 2 },
-  ];
+  const loadGrades = async () => {
+    try {
+      const [gradesData, gradesBySubject] = await Promise.all([
+        etudiantService.getMyGrades(),
+        etudiantService.getGradesBySubject()
+      ]);
 
-  const gradeDistribution = [
-    { name: "16-20", value: 5, color: "#10b981" },
-    { name: "14-15", value: 4, color: "#3b82f6" },
-    { name: "12-13", value: 2, color: "#f59e0b" },
-    { name: "0-11", value: 1, color: "#ef4444" },
-  ];
+      // Combiner toutes les évaluations
+      const allGrades = [
+        ...(gradesData.individuelles || []),
+        ...(gradesData.groupes || [])
+      ];
+
+      // Formater les notes
+      const formattedGrades = allGrades.map(evaluation => ({
+        id: evaluation.id,
+        work: evaluation.livraison?.affectation?.travail?.titre || 
+              evaluation.livraison?.groupe?.travail?.titre || 
+              'Sans titre',
+        course: evaluation.livraison?.affectation?.travail?.espacePedagogique?.matiere?.nom ||
+                evaluation.livraison?.groupe?.travail?.espacePedagogique?.matiere?.nom ||
+                'Sans matière',
+        grade: evaluation.note,
+        date: evaluation.dateEvaluation,
+        comment: evaluation.commentaire || '',
+        teacher: evaluation.evaluateur ? 
+          `${evaluation.evaluateur.nom} ${evaluation.evaluateur.prenom}` : 
+          'Non spécifié'
+      }));
+
+      setGrades(formattedGrades);
+
+      // Calculer les stats
+      const notes = formattedGrades.map(g => g.grade);
+      const average = notes.length > 0 ? notes.reduce((sum, n) => sum + n, 0) / notes.length : 0;
+      const best = notes.length > 0 ? Math.max(...notes) : 0;
+
+      setStats({
+        average: parseFloat(average.toFixed(2)),
+        trend: "+0.8", // TODO: Calculer la vraie tendance
+        total: notes.length,
+        best
+      });
+
+      // Moyennes par matière
+      if (gradesBySubject.parMatiere) {
+        const courseAvgs = gradesBySubject.parMatiere.map(item => ({
+          course: item.matiere.nom,
+          average: parseFloat(item.moyenne),
+          count: item.nombreNotes
+        }));
+        setCourseAverages(courseAvgs);
+      }
+
+      // Distribution des notes
+      const dist = [
+        { name: "16-20", value: notes.filter(n => n >= 16).length, color: "#10b981" },
+        { name: "14-15", value: notes.filter(n => n >= 14 && n < 16).length, color: "#3b82f6" },
+        { name: "12-13", value: notes.filter(n => n >= 12 && n < 14).length, color: "#f59e0b" },
+        { name: "0-11", value: notes.filter(n => n < 12).length, color: "#ef4444" },
+      ];
+      setGradeDistribution(dist);
+
+    } catch (error) {
+      console.error('Erreur chargement notes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredGrades = grades.filter((grade) => {
     if (filter === "all") return true;
@@ -116,6 +127,14 @@ export default function MyGrades() {
     if (grade >= 12) return "Passable";
     return "Insuffisant";
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-slideUp">
@@ -186,7 +205,7 @@ export default function MyGrades() {
               <h3 className="text-3xl font-bold text-gray-900 mt-2">
                 {stats.best}/20
               </h3>
-              <p className="text-purple-600 text-sm mt-2">React E-commerce</p>
+              <p className="text-purple-600 text-sm mt-2">Bravo !</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
               <Award className="w-6 h-6 text-white" />
@@ -198,8 +217,12 @@ export default function MyGrades() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm font-medium">Dernière Note</p>
-              <h3 className="text-3xl font-bold text-gray-900 mt-2">18/20</h3>
-              <p className="text-orange-600 text-sm mt-2">Il y a 2 jours</p>
+              <h3 className="text-3xl font-bold text-gray-900 mt-2">
+                {grades.length > 0 ? `${grades[0].grade}/20` : 'N/A'}
+              </h3>
+              <p className="text-orange-600 text-sm mt-2">
+                {grades.length > 0 ? new Date(grades[0].date).toLocaleDateString('fr-FR') : '-'}
+              </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
               <Calendar className="w-6 h-6 text-white" />
@@ -220,10 +243,10 @@ export default function MyGrades() {
                 onChange={(e) => setFilter(e.target.value)}
                 className="flex-1"
               >
-                <option value="all">Toutes les matières</option>
+                <option value="all">Toutes les matières ({grades.length})</option>
                 {courseAverages.map((course, idx) => (
                   <option key={idx} value={course.course}>
-                    {course.course}
+                    {course.course} ({course.count})
                   </option>
                 ))}
               </Select>
@@ -231,65 +254,75 @@ export default function MyGrades() {
           </Card>
 
           {/* Grades */}
-          <div className="space-y-4">
-            {filteredGrades.map((grade) => (
-              <Card
-                key={grade.id}
-                className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">
-                      {grade.work}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-2">{grade.course}</p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Calendar className="w-3 h-3" />
-                      <span>
-                        {new Date(grade.date).toLocaleDateString("fr-FR")}
-                      </span>
-                      <span>•</span>
-                      <span>Prof. {grade.teacher}</span>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div
-                      className={`text-3xl font-bold px-4 py-2 rounded-xl ${getGradeColor(
-                        grade.grade
-                      )}`}
-                    >
-                      {grade.grade}/20
-                    </div>
-                    <Badge
-                      variant={
-                        grade.grade >= 16
-                          ? "success"
-                          : grade.grade >= 14
-                          ? "info"
-                          : "warning"
-                      }
-                      className="mt-2"
-                    >
-                      {getGradeLabel(grade.grade)}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Comment */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-2">
-                    <MessageSquare className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          {filteredGrades.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Award className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-xl font-bold text-gray-600 mb-2">Aucune note</h3>
+              <p className="text-gray-500">Vous n'avez pas encore de notes</p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {filteredGrades.map((grade) => (
+                <Card
+                  key={grade.id}
+                  className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                >
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900 mb-1">
-                        Commentaire du formateur
-                      </p>
-                      <p className="text-sm text-gray-700">{grade.comment}</p>
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
+                        {grade.work}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-2">{grade.course}</p>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Calendar className="w-3 h-3" />
+                        <span>
+                          {new Date(grade.date).toLocaleDateString("fr-FR")}
+                        </span>
+                        <span>•</span>
+                        <span>Prof. {grade.teacher}</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div
+                        className={`text-3xl font-bold px-4 py-2 rounded-xl ${getGradeColor(
+                          grade.grade
+                        )}`}
+                      >
+                        {grade.grade}/20
+                      </div>
+                      <Badge
+                        variant={
+                          grade.grade >= 16
+                            ? "success"
+                            : grade.grade >= 14
+                            ? "info"
+                            : "warning"
+                        }
+                        className="mt-2"
+                      >
+                        {getGradeLabel(grade.grade)}
+                      </Badge>
                     </div>
                   </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+
+                  {/* Comment */}
+                  {grade.comment && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <MessageSquare className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900 mb-1">
+                            Commentaire du formateur
+                          </p>
+                          <p className="text-sm text-gray-700">{grade.comment}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Stats Sidebar */}
@@ -299,60 +332,66 @@ export default function MyGrades() {
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Moyennes par Matière
             </h3>
-            <div className="space-y-4">
-              {courseAverages.map((course, idx) => (
-                <div key={idx}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">
-                      {course.course}
-                    </span>
-                    <span
-                      className={`text-lg font-bold ${
-                        getGradeColor(course.average).split(" ")[0]
-                      }`}
-                    >
-                      {course.average}/20
-                    </span>
+            {courseAverages.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">Aucune donnée</p>
+            ) : (
+              <div className="space-y-4">
+                {courseAverages.map((course, idx) => (
+                  <div key={idx}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        {course.course}
+                      </span>
+                      <span
+                        className={`text-lg font-bold ${
+                          getGradeColor(course.average).split(" ")[0]
+                        }`}
+                      >
+                        {course.average}/20
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                        style={{ width: `${(course.average / 20) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {course.count} note{course.count > 1 ? "s" : ""}
+                    </p>
                   </div>
-                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
-                      style={{ width: `${(course.average / 20) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {course.count} note{course.count > 1 ? "s" : ""}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
 
           {/* Grade Distribution */}
-          <Card className="p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Distribution des Notes
-            </h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={gradeDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {gradeDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Card>
+          {gradeDistribution.some(d => d.value > 0) && (
+            <Card className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                Distribution des Notes
+              </h3>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={gradeDistribution.filter(d => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {gradeDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </Card>
+          )}
         </div>
       </div>
 

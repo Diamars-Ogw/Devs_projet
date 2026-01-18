@@ -1,68 +1,81 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Clock, CheckCircle, AlertCircle, Upload, FileText } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Select from "@/components/ui/Select";
+import etudiantService from "@/services/etudiant.service";
 
 export default function MyWorks() {
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [works, setWorks] = useState([]);
 
-  const [works] = useState([
-    {
-      id: 1,
-      title: "Projet React E-commerce",
-      course: "React Avancé",
-      type: "Individuel",
-      deadline: "2024-01-15",
-      status: "pending",
-      daysLeft: 3,
-      description: "Créer une application e-commerce complète avec React",
-    },
-    {
-      id: 2,
-      title: "TP Node.js API REST",
-      course: "Node.js API",
-      type: "Individuel",
-      deadline: "2024-01-20",
-      status: "pending",
-      daysLeft: 8,
-      description: "Développer une API REST avec Node.js et Express",
-    },
-    {
-      id: 3,
-      title: "Mini-projet TypeScript",
-      course: "TypeScript",
-      type: "Collectif",
-      deadline: "2024-01-25",
-      status: "submitted",
-      submittedAt: "2024-01-12",
-      description: "Application TypeScript avec interfaces et types avancés",
-    },
-    {
-      id: 4,
-      title: "Application Next.js",
-      course: "Next.js",
-      type: "Individuel",
-      deadline: "2024-01-18",
-      status: "graded",
-      grade: 18,
-      submittedAt: "2024-01-10",
-      description: "Créer une application avec Next.js et Server Components",
-    },
-    {
-      id: 5,
-      title: "TP SQL Avancé",
-      course: "Base de données",
-      type: "Individuel",
-      deadline: "2024-01-08",
-      status: "graded",
-      grade: 17,
-      submittedAt: "2024-01-07",
-      description: "Requêtes complexes et optimisation SQL",
-    },
-  ]);
+  useEffect(() => {
+    loadWorks();
+  }, []);
+
+  const loadWorks = async () => {
+    try {
+      const data = await etudiantService.getMyWorks();
+      
+      // Formater les travaux individuels
+      const individuels = (data.individuels || []).map(aff => ({
+        id: aff.travail.id,
+        title: aff.travail.titre,
+        course: aff.travail.espacePedagogique?.matiere?.nom || aff.travail.espacePedagogique?.nom || 'Sans matière',
+        type: 'Individuel',
+        deadline: aff.travail.dateFin,
+        status: aff.livraisons && aff.livraisons.length > 0
+          ? (aff.livraisons[0].evaluations && aff.livraisons[0].evaluations.length > 0 ? 'graded' : 'submitted')
+          : 'pending',
+        submittedAt: aff.livraisons && aff.livraisons.length > 0 ? aff.livraisons[0].dateLivraison : null,
+        grade: aff.livraisons && aff.livraisons.length > 0 && aff.livraisons[0].evaluations && aff.livraisons[0].evaluations.length > 0
+          ? aff.livraisons[0].evaluations[0].note
+          : null,
+        description: aff.travail.consignes,
+        affectationId: aff.id,
+        isIndividual: true
+      }));
+
+      // Formater les travaux de groupe
+      const groupes = (data.groupes || []).map(membre => ({
+        id: membre.groupe.travail.id,
+        title: membre.groupe.travail.titre,
+        course: membre.groupe.travail.espacePedagogique?.matiere?.nom || membre.groupe.travail.espacePedagogique?.nom || 'Sans matière',
+        type: 'Collectif',
+        deadline: membre.groupe.travail.dateFin,
+        status: membre.groupe.livraisons && membre.groupe.livraisons.length > 0
+          ? (membre.groupe.livraisons[0].evaluations && membre.groupe.livraisons[0].evaluations.length > 0 ? 'graded' : 'submitted')
+          : 'pending',
+        submittedAt: membre.groupe.livraisons && membre.groupe.livraisons.length > 0 ? membre.groupe.livraisons[0].dateLivraison : null,
+        grade: membre.groupe.livraisons && membre.groupe.livraisons.length > 0 && membre.groupe.livraisons[0].evaluations && membre.groupe.livraisons[0].evaluations.length > 0
+          ? membre.groupe.livraisons[0].evaluations[0].note
+          : null,
+        description: membre.groupe.travail.consignes,
+        groupeId: membre.groupe.id,
+        isIndividual: false
+      }));
+
+      const allWorks = [...individuels, ...groupes];
+
+      // Calculer les jours restants pour les travaux en attente
+      allWorks.forEach(work => {
+        if (work.status === 'pending') {
+          const deadline = new Date(work.deadline);
+          const now = new Date();
+          work.daysLeft = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+        }
+      });
+
+      setWorks(allWorks);
+    } catch (error) {
+      console.error('Erreur chargement travaux:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredWorks = works.filter((work) => {
     if (filter === "all") return true;
@@ -109,6 +122,14 @@ export default function MyWorks() {
 
   const pendingCount = works.filter((w) => w.status === "pending").length;
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-slideUp">
       {/* Header */}
@@ -131,10 +152,10 @@ export default function MyWorks() {
         <div className="flex items-center gap-4">
           <FileText className="w-5 h-5 text-gray-600" />
           <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="w-64">
-            <option value="all">Tous les travaux</option>
-            <option value="pending">À rendre</option>
-            <option value="submitted">Soumis</option>
-            <option value="graded">Notés</option>
+            <option value="all">Tous les travaux ({works.length})</option>
+            <option value="pending">À rendre ({works.filter(w => w.status === 'pending').length})</option>
+            <option value="submitted">Soumis ({works.filter(w => w.status === 'submitted').length})</option>
+            <option value="graded">Notés ({works.filter(w => w.status === 'graded').length})</option>
           </Select>
         </div>
       </Card>
@@ -143,7 +164,7 @@ export default function MyWorks() {
       <div className="space-y-4">
         {filteredWorks.map((work) => (
           <Card
-            key={work.id}
+            key={`${work.id}-${work.isIndividual ? 'ind' : 'grp'}`}
             className={`hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${
               work.status === "pending" && work.daysLeft <= 3
                 ? "border-l-4 border-red-500"
@@ -164,7 +185,7 @@ export default function MyWorks() {
                       {getStatusBadge(work)}
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{work.course}</p>
-                    <p className="text-sm text-gray-700">{work.description}</p>
+                    <p className="text-sm text-gray-700 line-clamp-2">{work.description}</p>
                   </div>
                 </div>
 
@@ -185,7 +206,7 @@ export default function MyWorks() {
               {/* Actions */}
               <div className="ml-6">
                 {work.status === "pending" && (
-                  <Link to={`/student/submit/${work.id}`}>
+                  <Link to={`/student/submit/${work.id}?type=${work.isIndividual ? 'individual' : 'group'}&id=${work.isIndividual ? work.affectationId : work.groupeId}`}>
                     <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                       <Upload className="w-4 h-4 mr-2" />
                       Soumettre
