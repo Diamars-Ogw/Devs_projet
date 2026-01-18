@@ -1,56 +1,61 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { UserCheck, Users as UsersIcon, Trash2, Calendar } from "lucide-react";
+import { UserCheck, Users as UsersIcon, Calendar } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
-import Modal from "@/components/ui/Modal";
+import Loader from "@/components/ui/Loader";
+import { workService } from "@/services/work.service";
 
 export default function AssignmentsList() {
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [assignments] = useState([
-    {
-      id: 1,
-      work: "Projet React E-commerce",
-      type: "Collectif",
-      assigned: 15,
-      total: 15,
-      date: "2024-01-01",
-      assignedTo: "3 groupes",
-    },
-    {
-      id: 2,
-      work: "TP Node.js API REST",
-      type: "Individuel",
-      assigned: 45,
-      total: 45,
-      date: "2024-01-02",
-      assignedTo: "45 étudiants",
-    },
-    {
-      id: 3,
-      work: "Mini-projet TypeScript",
-      type: "Collectif",
-      assigned: 10,
-      total: 14,
-      date: "2024-01-05",
-      assignedTo: "5 groupes (en cours)",
-    },
-  ]);
+  useEffect(() => {
+    loadAssignments();
+  }, []);
 
-  const handleDelete = (assignment) => {
-    setSelectedAssignment(assignment);
-    setShowDeleteModal(true);
+  const loadAssignments = async () => {
+    try {
+      setLoading(true);
+      const response = await workService.getAll();
+      const works = response.travaux || [];
+
+      // Formater les données pour l'affichage
+      const assignmentsData = works.map((work) => {
+        const isIndividual = work.typeTravail === "INDIVIDUEL";
+        const total = isIndividual
+          ? work._count?.affectations || 0
+          : work._count?.groupes || 0;
+
+        return {
+          id: work.id,
+          work: work.titre,
+          type: isIndividual ? "Individuel" : "Collectif",
+          assigned: total,
+          total: total,
+          date: work.dateDebut,
+          assignedTo: isIndividual
+            ? `${total} étudiant${total > 1 ? "s" : ""}`
+            : `${total} groupe${total > 1 ? "s" : ""}`,
+        };
+      });
+
+      setAssignments(assignmentsData);
+    } catch (error) {
+      console.error("Erreur chargement assignations:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const confirmDelete = () => {
-    console.log("Deleting assignment:", selectedAssignment);
-    // TODO: API call
-    setShowDeleteModal(false);
-    setSelectedAssignment(null);
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-slideUp">
@@ -103,23 +108,18 @@ export default function AssignmentsList() {
                 {/* Progress */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Progression</span>
+                    <span className="text-gray-600">Assignations</span>
                     <span className="font-semibold text-gray-900">
-                      {assignment.assigned}/{assignment.total}
+                      {assignment.assigned}{" "}
+                      {assignment.type === "Individuel"
+                        ? "étudiant(s)"
+                        : "groupe(s)"}
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all duration-1000 ${
-                        assignment.assigned === assignment.total
-                          ? "bg-green-500"
-                          : "bg-purple-500"
-                      }`}
-                      style={{
-                        width: `${
-                          (assignment.assigned / assignment.total) * 100
-                        }%`,
-                      }}
+                      className={`h-full rounded-full transition-all duration-1000 bg-purple-500`}
+                      style={{ width: "100%" }}
                     ></div>
                   </div>
                 </div>
@@ -127,13 +127,14 @@ export default function AssignmentsList() {
 
               {/* Actions */}
               <div className="flex items-center gap-3 ml-6">
-                <Button
-                  variant="outline"
-                  className="border-red-200 text-red-600 hover:bg-red-50"
-                  onClick={() => handleDelete(assignment)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <Link to={`/trainer/works/edit/${assignment.id}`}>
+                  <Button
+                    variant="outline"
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                  >
+                    Modifier
+                  </Button>
+                </Link>
               </div>
             </div>
           </Card>
@@ -179,50 +180,24 @@ export default function AssignmentsList() {
         </Link>
       </div>
 
-      {/* Delete Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Confirmer la suppression"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Êtes-vous sûr de vouloir supprimer l'assignation du travail{" "}
-            <strong>{selectedAssignment?.work}</strong> ?
+      {assignments.length === 0 && (
+        <Card className="p-12 text-center">
+          <UsersIcon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-xl font-bold text-gray-600 mb-2">
+            Aucune assignation
+          </h3>
+          <p className="text-gray-500">
+            Commencez par créer des travaux puis assignez-les
           </p>
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-            <p className="text-sm text-orange-800">
-              ⚠️ Cette action supprimera toutes les assignations de ce travail.
-            </p>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-              Annuler
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={confirmDelete}
-            >
-              Supprimer
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </Card>
+      )}
 
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slideUp {
-          animation: slideUp 0.6s ease-out;
-        }
+        .animate-slideUp { animation: slideUp 0.6s ease-out; }
       `}</style>
     </div>
   );

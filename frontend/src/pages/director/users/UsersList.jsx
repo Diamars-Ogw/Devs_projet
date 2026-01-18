@@ -19,7 +19,6 @@ import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { userService } from "@/services/user.service";
-import { getInitials } from "@/utils/helpers";
 
 const UsersList = () => {
   const navigate = useNavigate();
@@ -31,43 +30,49 @@ const UsersList = () => {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, user: null });
   const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
-  // Charger les utilisateurs
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [roleFilter, statusFilter]);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const data = await userService.getAll({
-        role: roleFilter,
-        estActif: statusFilter,
+      console.log("🔄 Chargement utilisateurs...", {
+        roleFilter,
+        statusFilter,
       });
-      setUsers(data.users || []);
+
+      const params = {};
+      if (roleFilter) params.role = roleFilter;
+      if (statusFilter) params.estActif = statusFilter;
+
+      const data = await userService.getAll(params);
+      console.log("📦 Données reçues:", data);
+
+      const usersData = data.users || [];
+      console.log("✅ Utilisateurs chargés:", usersData.length);
+
+      setUsers(usersData);
     } catch (error) {
-      console.error("Erreur chargement utilisateurs:", error);
+      console.error("❌ Erreur chargement utilisateurs:", error);
+      console.error("Détails:", error.response?.data);
       showToast("Erreur lors du chargement des utilisateurs", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  // Recharger quand les filtres changent
-  useEffect(() => {
-    if (!loading) {
-      loadUsers();
-    }
-  }, [roleFilter, statusFilter]);
-
-  // Filtrer les utilisateurs localement
   const filteredUsers = users.filter((user) => {
-    const matchesSearch = `${user.nom} ${user.prenom} ${user.email}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      (user.nom?.toLowerCase() || "").includes(search) ||
+      (user.prenom?.toLowerCase() || "").includes(search) ||
+      (user.email?.toLowerCase() || "").includes(search) ||
+      (user.matricule?.toLowerCase() || "").includes(search)
+    );
   });
 
-  // Statistiques
   const stats = {
     total: users.length,
     actifs: users.filter((u) => u.estActif).length,
@@ -75,7 +80,6 @@ const UsersList = () => {
     etudiants: users.filter((u) => u.role === "ETUDIANT").length,
   };
 
-  // Supprimer un utilisateur
   const handleDelete = async (userId) => {
     try {
       await userService.delete(userId);
@@ -84,11 +88,13 @@ const UsersList = () => {
       setDeleteModal({ isOpen: false, user: null });
     } catch (error) {
       console.error("Erreur suppression:", error);
-      showToast("Erreur lors de la suppression", "error");
+      showToast(
+        error.response?.data?.error || "Erreur lors de la suppression",
+        "error",
+      );
     }
   };
 
-  // Toggle statut
   const handleToggleStatus = async (userId) => {
     try {
       await userService.toggleStatus(userId);
@@ -96,7 +102,10 @@ const UsersList = () => {
       loadUsers();
     } catch (error) {
       console.error("Erreur toggle:", error);
-      showToast("Erreur lors de la modification du statut", "error");
+      showToast(
+        error.response?.data?.error || "Erreur lors de la modification",
+        "error",
+      );
     }
   };
 
@@ -105,27 +114,43 @@ const UsersList = () => {
     setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
-  // Couleur du badge selon le rôle
+  const getInitials = (prenom, nom) => {
+    return `${prenom?.[0] || ""}${nom?.[0] || ""}`.toUpperCase();
+  };
+
   const getRoleBadgeColor = (role) => {
     const colors = {
       DIRECTEUR: "info",
-      FORMATEUR: "purple",
+      FORMATEUR: "primary",
       ETUDIANT: "success",
       TECHNICIEN: "warning",
     };
-    return colors[role] || "info";
+    return colors[role] || "secondary";
   };
 
   if (loading) {
-    return <Loader text="Chargement des utilisateurs..." />;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader size="large" />
+        <span className="ml-3 text-gray-600">
+          Chargement des utilisateurs...
+        </span>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast.show && <Toast message={toast.message} type={toast.type} />}
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast({ show: false, message: "", type: "" })}
+          />
+        </div>
+      )}
 
-      {/* En-tête */}
       <div className="flex items-center justify-between animate-slide-up">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -135,99 +160,127 @@ const UsersList = () => {
             Créer et gérer les comptes utilisateurs de la plateforme
           </p>
         </div>
-        <Button
-          icon={Plus}
-          onClick={() => navigate("/director/users/create")}
-          className="shadow-lg"
-        >
+        <Button onClick={() => navigate("/director/users/create")}>
+          <Plus className="w-5 h-5 mr-2" />
           Créer un Compte
         </Button>
       </div>
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Utilisateurs"
-          value={stats.total}
-          icon="👥"
-          color="blue"
-        />
-        <StatCard
-          title="Comptes Actifs"
-          value={stats.actifs}
-          icon="✅"
-          color="green"
-        />
-        <StatCard
-          title="Comptes Inactifs"
-          value={stats.inactifs}
-          icon="⏳"
-          color="red"
-        />
-        <StatCard
-          title="Étudiants"
-          value={stats.etudiants}
-          icon="🎓"
-          color="purple"
-        />
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Total Utilisateurs</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.total}
+              </p>
+            </div>
+            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-2xl shadow-lg">
+              👥
+            </div>
+          </div>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Comptes Actifs</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.actifs}
+              </p>
+            </div>
+            <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center text-2xl shadow-lg">
+              ✅
+            </div>
+          </div>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Comptes Inactifs</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.inactifs}
+              </p>
+            </div>
+            <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center text-2xl shadow-lg">
+              ⏳
+            </div>
+          </div>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Étudiants</p>
+              <p className="text-3xl font-bold text-gray-900 mt-2">
+                {stats.etudiants}
+              </p>
+            </div>
+            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-2xl shadow-lg">
+              🎓
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Filtres */}
-      <Card className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
+      <Card>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Input
-            placeholder="Rechercher par nom, prénom ou email..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={Search}
-          />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder="Rechercher par nom, prénom ou email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
           <Select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            options={[
-              { value: "", label: "Tous les rôles" },
-              { value: "DIRECTEUR", label: "Directeur" },
-              { value: "FORMATEUR", label: "Formateur" },
-              { value: "ETUDIANT", label: "Étudiant" },
-            ]}
-            icon={Filter}
-          />
+          >
+            <option value="">Tous les rôles</option>
+            <option value="DIRECTEUR">Directeur</option>
+            <option value="FORMATEUR">Formateur</option>
+            <option value="ETUDIANT">Étudiant</option>
+          </Select>
 
           <Select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            options={[
-              { value: "", label: "Tous les statuts" },
-              { value: "true", label: "Actifs uniquement" },
-              { value: "false", label: "Inactifs uniquement" },
-            ]}
-          />
+          >
+            <option value="">Tous les statuts</option>
+            <option value="true">Actifs uniquement</option>
+            <option value="false">Inactifs uniquement</option>
+          </Select>
         </div>
       </Card>
 
-      {/* Liste des utilisateurs */}
-      <Card className="animate-slide-up" style={{ animationDelay: "0.2s" }}>
+      {/* Liste */}
+      <Card>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Utilisateur
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Rôle
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Promotion / Spécialité
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Promotion/Spécialité
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Statut
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                   Actions
                 </th>
               </tr>
@@ -301,20 +354,18 @@ const UsersList = () => {
                         )}
                       </button>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                       <button
                         onClick={() =>
                           navigate(`/director/users/edit/${user.id}`)
                         }
                         className="text-purple-600 hover:text-purple-900 mr-3 transition-colors"
-                        title="Modifier"
                       >
                         <Edit2 className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => setDeleteModal({ isOpen: true, user })}
                         className="text-red-600 hover:text-red-900 transition-colors"
-                        title="Supprimer"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -327,12 +378,11 @@ const UsersList = () => {
         </div>
       </Card>
 
-      {/* Modal de confirmation de suppression */}
+      {/* Modal suppression */}
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, user: null })}
         title="Confirmer la suppression"
-        size="sm"
       >
         {deleteModal.user && (
           <div className="space-y-4">
@@ -348,13 +398,13 @@ const UsersList = () => {
             </p>
             <div className="flex justify-end gap-3">
               <Button
-                variant="secondary"
+                variant="outline"
                 onClick={() => setDeleteModal({ isOpen: false, user: null })}
               >
                 Annuler
               </Button>
               <Button
-                variant="danger"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => handleDelete(deleteModal.user.id)}
               >
                 Supprimer
@@ -364,32 +414,6 @@ const UsersList = () => {
         )}
       </Modal>
     </div>
-  );
-};
-
-// Composant StatCard
-const StatCard = ({ title, value, icon, color }) => {
-  const colors = {
-    blue: "from-blue-500 to-blue-600",
-    green: "from-green-500 to-green-600",
-    red: "from-red-500 to-red-600",
-    purple: "from-purple-500 to-purple-600",
-  };
-
-  return (
-    <Card className="card-hover animate-slide-up">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
-        </div>
-        <div
-          className={`w-14 h-14 bg-gradient-to-br ${colors[color]} rounded-xl flex items-center justify-center text-2xl shadow-lg`}
-        >
-          {icon}
-        </div>
-      </div>
-    </Card>
   );
 };
 

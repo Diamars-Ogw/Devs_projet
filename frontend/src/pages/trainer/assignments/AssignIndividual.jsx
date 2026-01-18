@@ -1,48 +1,102 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, UserCheck, Search, CheckSquare, Square } from "lucide-react";
+import {
+  ArrowLeft,
+  UserCheck,
+  Search,
+  CheckSquare,
+  Square,
+} from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
+import Loader from "@/components/ui/Loader";
+import { workService } from "@/services/work.service";
+import { spaceService } from "@/services/space.service";
 
 export default function AssignIndividual() {
   const navigate = useNavigate();
-  
+  const [loading, setLoading] = useState(false);
+  const [works, setWorks] = useState([]);
+  const [students, setStudents] = useState([]);
+
   const [formData, setFormData] = useState({
-    work: "",
-    space: "",
+    travailId: "",
+    espacePedagogiqueId: "",
   });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
 
-  // Mock data - étudiants disponibles
-  const [students] = useState([
-    { id: 1, name: "Marie Dupont", matricule: "ETU2024001", promotion: "Web Dev 2024", initials: "MD", color: "from-purple-400 to-pink-400" },
-    { id: 2, name: "Jean Martin", matricule: "ETU2024002", promotion: "Web Dev 2024", initials: "JM", color: "from-blue-400 to-cyan-400" },
-    { id: 3, name: "Sophie Bernard", matricule: "ETU2024003", promotion: "Web Dev 2024", initials: "SB", color: "from-green-400 to-emerald-400" },
-    { id: 4, name: "Pierre Laurent", matricule: "ETU2024004", promotion: "Web Dev 2024", initials: "PL", color: "from-orange-400 to-amber-400" },
-    { id: 5, name: "Emma Dubois", matricule: "ETU2024005", promotion: "Web Dev 2024", initials: "ED", color: "from-red-400 to-rose-400" },
-    { id: 6, name: "Lucas Martin", matricule: "ETU2024006", promotion: "Web Dev 2024", initials: "LM", color: "from-teal-400 to-cyan-400" },
-    { id: 7, name: "Alice Moreau", matricule: "ETU2024007", promotion: "Web Dev 2023", initials: "AM", color: "from-indigo-400 to-purple-400" },
-    { id: 8, name: "Thomas Petit", matricule: "ETU2024008", promotion: "Web Dev 2023", initials: "TP", color: "from-pink-400 to-rose-400" },
-  ]);
+  useEffect(() => {
+    loadWorks();
+  }, []);
+
+  useEffect(() => {
+    if (formData.travailId) {
+      loadStudents(formData.travailId);
+    }
+  }, [formData.travailId]);
+
+  const loadWorks = async () => {
+    try {
+      const response = await workService.getAll({ typeTravail: "INDIVIDUEL" });
+      setWorks(response.travaux || []);
+    } catch (error) {
+      console.error("Erreur chargement travaux:", error);
+    }
+  };
+
+  const loadStudents = async (workId) => {
+    try {
+      const work = await workService.getById(workId);
+      if (work.espacePedagogiqueId) {
+        const space = await spaceService.getById(work.espacePedagogiqueId);
+        const studentsData = (space.inscriptions || []).map(
+          (inscription, idx) => ({
+            id: inscription.etudiant.id,
+            name: `${inscription.etudiant.prenom} ${inscription.etudiant.nom}`,
+            matricule: inscription.etudiant.matricule,
+            promotion: space.promotion?.nom || "N/A",
+            initials: `${inscription.etudiant.prenom?.[0]}${inscription.etudiant.nom?.[0]}`,
+            color: [
+              "from-purple-400 to-pink-400",
+              "from-blue-400 to-cyan-400",
+              "from-green-400 to-emerald-400",
+              "from-orange-400 to-amber-400",
+              "from-red-400 to-rose-400",
+              "from-teal-400 to-cyan-400",
+              "from-indigo-400 to-purple-400",
+              "from-pink-400 to-rose-400",
+            ][idx % 8],
+          }),
+        );
+        setStudents(studentsData);
+        setFormData((prev) => ({
+          ...prev,
+          espacePedagogiqueId: work.espacePedagogiqueId.toString(),
+        }));
+      }
+    } catch (error) {
+      console.error("Erreur chargement étudiants:", error);
+    }
+  };
 
   const filteredStudents = students.filter(
     (student) =>
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.matricule.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.promotion.toLowerCase().includes(searchTerm.toLowerCase())
+      student.promotion.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const toggleStudent = (studentId) => {
     setSelectedStudents((prev) =>
       prev.includes(studentId)
         ? prev.filter((id) => id !== studentId)
-        : [...prev, studentId]
+        : [...prev, studentId],
     );
   };
 
@@ -55,14 +109,27 @@ export default function AssignIndividual() {
     setSelectAll(!selectAll);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Assignment data:", {
-      ...formData,
-      students: selectedStudents,
-    });
-    // TODO: API call
-    navigate("/trainer/assignments");
+
+    if (selectedStudents.length === 0) {
+      alert("Veuillez sélectionner au moins un étudiant");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await workService.assignIndividual(formData.travailId, selectedStudents);
+      alert(
+        `Travail assigné à ${selectedStudents.length} étudiant(s) avec succès !`,
+      );
+      navigate("/trainer/assignments");
+    } catch (error) {
+      console.error("Erreur assignation:", error);
+      alert(error.response?.data?.error || "Erreur lors de l'assignation");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,7 +147,9 @@ export default function AssignIndividual() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Assignation Individuelle
           </h1>
-          <p className="text-gray-600 mt-1">Assigner un travail à des étudiants</p>
+          <p className="text-gray-600 mt-1">
+            Assigner un travail à des étudiants
+          </p>
         </div>
       </div>
 
@@ -89,41 +158,34 @@ export default function AssignIndividual() {
           {/* Left Column - Work Selection */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="p-6 sticky top-24">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Informations</h2>
-              
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Informations
+              </h2>
+
               <div className="space-y-4">
                 <Select
-                  label="Espace pédagogique"
-                  name="space"
-                  value={formData.space}
-                  onChange={(e) => setFormData({ ...formData, space: e.target.value })}
-                  required
-                >
-                  <option value="">Sélectionner un espace</option>
-                  <option value="1">React Avancé</option>
-                  <option value="2">Node.js API</option>
-                  <option value="3">TypeScript</option>
-                  <option value="4">Next.js</option>
-                </Select>
-
-                <Select
                   label="Travail à assigner"
-                  name="work"
-                  value={formData.work}
-                  onChange={(e) => setFormData({ ...formData, work: e.target.value })}
+                  name="travailId"
+                  value={formData.travailId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, travailId: e.target.value })
+                  }
                   required
                 >
                   <option value="">Sélectionner un travail</option>
-                  <option value="1">Projet React E-commerce</option>
-                  <option value="2">TP Node.js API REST</option>
-                  <option value="3">Mini-projet TypeScript</option>
-                  <option value="4">Application Next.js</option>
+                  {works.map((work) => (
+                    <option key={work.id} value={work.id}>
+                      {work.titre}
+                    </option>
+                  ))}
                 </Select>
 
                 {/* Selected Count */}
                 <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Étudiants sélectionnés</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Étudiants sélectionnés
+                    </span>
                     <Badge variant="primary" className="text-lg px-3 py-1">
                       {selectedStudents.length}
                     </Badge>
@@ -140,10 +202,21 @@ export default function AssignIndividual() {
                   type="submit"
                   fullWidth
                   className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg mt-6"
-                  disabled={selectedStudents.length === 0 || !formData.work}
+                  disabled={
+                    selectedStudents.length === 0 ||
+                    !formData.travailId ||
+                    loading
+                  }
                 >
-                  <UserCheck className="w-5 h-5 mr-2" />
-                  Assigner aux {selectedStudents.length} étudiant{selectedStudents.length > 1 ? "s" : ""}
+                  {loading ? (
+                    <Loader size="small" />
+                  ) : (
+                    <>
+                      <UserCheck className="w-5 h-5 mr-2" />
+                      Assigner aux {selectedStudents.length} étudiant
+                      {selectedStudents.length > 1 ? "s" : ""}
+                    </>
+                  )}
                 </Button>
               </div>
             </Card>
@@ -156,18 +229,20 @@ export default function AssignIndividual() {
                 <h2 className="text-xl font-bold text-gray-900">
                   Liste des Étudiants ({filteredStudents.length})
                 </h2>
-                <button
-                  type="button"
-                  onClick={toggleSelectAll}
-                  className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
-                >
-                  {selectAll ? (
-                    <CheckSquare className="w-5 h-5" />
-                  ) : (
-                    <Square className="w-5 h-5" />
-                  )}
-                  {selectAll ? "Tout désélectionner" : "Tout sélectionner"}
-                </button>
+                {filteredStudents.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+                  >
+                    {selectAll ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                    {selectAll ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                )}
               </div>
 
               {/* Search */}
@@ -183,7 +258,12 @@ export default function AssignIndividual() {
 
               {/* Students Grid */}
               <div className="max-h-[600px] overflow-y-auto space-y-2">
-                {filteredStudents.length === 0 ? (
+                {!formData.travailId ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                    <p>Sélectionnez d'abord un travail</p>
+                  </div>
+                ) : filteredStudents.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                     <p>Aucun étudiant trouvé</p>
@@ -237,8 +317,12 @@ export default function AssignIndividual() {
 
                           {/* Info */}
                           <div className="text-left">
-                            <p className="font-semibold text-gray-900">{student.name}</p>
-                            <p className="text-sm text-gray-600">{student.matricule}</p>
+                            <p className="font-semibold text-gray-900">
+                              {student.name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {student.matricule}
+                            </p>
                             <Badge variant="secondary" className="mt-1 text-xs">
                               {student.promotion}
                             </Badge>
@@ -263,18 +347,10 @@ export default function AssignIndividual() {
 
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slideUp {
-          animation: slideUp 0.6s ease-out;
-        }
+        .animate-slideUp { animation: slideUp 0.6s ease-out; }
       `}</style>
     </div>
   );

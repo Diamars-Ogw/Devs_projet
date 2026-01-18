@@ -25,12 +25,21 @@ const PromotionsList = () => {
 
   const loadPromotions = async () => {
     try {
+      setLoading(true);
+      console.log("🔄 Chargement promotions...");
+      
       const data = await promotionService.getAll();
-      setPromotions(data.promotions || []);
-      setLoading(false);
+      console.log("📦 Données reçues:", data);
+      
+      const promotionsData = data.promotions || [];
+      console.log("✅ Promotions chargées:", promotionsData.length);
+      
+      setPromotions(promotionsData);
     } catch (error) {
-      console.error("Erreur chargement promotions:", error);
+      console.error("❌ Erreur chargement promotions:", error);
+      console.error("Détails:", error.response?.data);
       showToast("Erreur lors du chargement", "error");
+    } finally {
       setLoading(false);
     }
   };
@@ -55,11 +64,17 @@ const PromotionsList = () => {
     setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
-  if (loading) return <Loader text="Chargement des promotions..." />;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader size="large" />
+        <span className="ml-3 text-gray-600">Chargement des promotions...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
       {toast.show && (
         <div className="fixed top-4 right-4 z-50">
           <Toast
@@ -79,10 +94,8 @@ const PromotionsList = () => {
             Créer et gérer les promotions académiques
           </p>
         </div>
-        <Button
-          icon={Plus}
-          onClick={() => navigate("/director/promotions/create")}
-        >
+        <Button onClick={() => navigate("/director/promotions/create")}>
+          <Plus className="w-5 h-5 mr-2" />
           Créer une Promotion
         </Button>
       </div>
@@ -102,7 +115,7 @@ const PromotionsList = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {promotions.map((promo) => (
-            <Card key={promo.id} className="card-hover animate-slide-up">
+            <Card key={promo.id} className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
               <div className="space-y-4">
                 <div className="flex items-start justify-between">
                   <div>
@@ -113,7 +126,7 @@ const PromotionsList = () => {
                       Code: {promo.code}
                     </p>
                   </div>
-                  <Badge variant={promo.estActive ? "success" : "danger"}>
+                  <Badge variant={promo.estActive ? "success" : "secondary"}>
                     {promo.estActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
@@ -135,12 +148,13 @@ const PromotionsList = () => {
                 </div>
 
                 <div className="flex justify-between gap-2 pt-4 border-t">
+                  {/* Bouton temporaire - à implémenter */}
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() =>
-                      navigate(`/director/promotions/${promo.id}/students`)
-                    }
+                    onClick={() => {
+                      alert(`Étudiants de la promotion: ${promo.nom}\n\nNombre: ${promo.nombreEtudiants || 0}\n\nCette fonctionnalité sera implémentée prochainement.`);
+                    }}
                   >
                     Voir les étudiants
                   </Button>
@@ -175,7 +189,6 @@ const PromotionsList = () => {
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, promotion: null })}
         title="Confirmer la suppression"
-        size="sm"
       >
         {deleteModal.promotion && (
           <div className="space-y-4">
@@ -184,11 +197,11 @@ const PromotionsList = () => {
               <strong>{deleteModal.promotion.nom}</strong> ?
             </p>
             <p className="text-sm text-red-600">
-              Cette action est irréversible.
+              ⚠️ Cette action est irréversible.
             </p>
             <div className="flex justify-end gap-3">
               <Button
-                variant="secondary"
+                variant="outline"
                 onClick={() =>
                   setDeleteModal({ isOpen: false, promotion: null })
                 }
@@ -196,7 +209,7 @@ const PromotionsList = () => {
                 Annuler
               </Button>
               <Button
-                variant="danger"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => handleDelete(deleteModal.promotion.id)}
               >
                 Supprimer
@@ -205,6 +218,22 @@ const PromotionsList = () => {
           </div>
         )}
       </Modal>
+
+      <style>{`
+        @keyframes slide-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.6s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

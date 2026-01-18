@@ -1,35 +1,69 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, UserPlus, X } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
+import Loader from "@/components/ui/Loader";
+import { workService } from "@/services/work.service";
+import { spaceService } from "@/services/space.service";
 
 export default function CreateGroup() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [works, setWorks] = useState([]);
+  const [availableStudents, setAvailableStudents] = useState([]);
   const [formData, setFormData] = useState({
-    name: "",
-    work: "",
+    nomGroupe: "",
+    travailId: "",
   });
-
-  const [availableStudents] = useState([
-    { id: 1, name: "Marie Dupont", matricule: "ETU2024001" },
-    { id: 2, name: "Jean Martin", matricule: "ETU2024002" },
-    { id: 3, name: "Sophie Bernard", matricule: "ETU2024003" },
-    { id: 4, name: "Pierre Laurent", matricule: "ETU2024004" },
-    { id: 5, name: "Emma Dubois", matricule: "ETU2024005" },
-    { id: 6, name: "Lucas Martin", matricule: "ETU2024006" },
-  ]);
-
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    loadWorks();
+  }, []);
+
+  useEffect(() => {
+    if (formData.travailId) {
+      loadStudents(formData.travailId);
+    }
+  }, [formData.travailId]);
+
+  const loadWorks = async () => {
+    try {
+      const response = await workService.getAll({ typeTravail: "COLLECTIF" });
+      setWorks(response.travaux || []);
+    } catch (error) {
+      console.error("Erreur chargement travaux:", error);
+    }
+  };
+
+  const loadStudents = async (workId) => {
+    try {
+      const work = await workService.getById(workId);
+      const spaceId = work.espacePedagogiqueId;
+
+      if (spaceId) {
+        const space = await spaceService.getById(spaceId);
+        const students = (space.inscriptions || []).map((i) => ({
+          id: i.etudiant.id,
+          name: `${i.etudiant.prenom} ${i.etudiant.nom}`,
+          matricule: i.etudiant.matricule,
+        }));
+        setAvailableStudents(students);
+      }
+    } catch (error) {
+      console.error("Erreur chargement étudiants:", error);
+    }
+  };
 
   const filteredStudents = availableStudents.filter(
     (student) =>
       !selectedStudents.find((s) => s.id === student.id) &&
       (student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.matricule.toLowerCase().includes(searchTerm.toLowerCase()))
+        student.matricule.toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
   const addStudent = (student) => {
@@ -41,11 +75,30 @@ export default function CreateGroup() {
     setSelectedStudents(selectedStudents.filter((s) => s.id !== id));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Group data:", { ...formData, members: selectedStudents });
-    // TODO: API call
-    navigate("/trainer/groups");
+
+    if (selectedStudents.length === 0) {
+      alert("Veuillez ajouter au moins un membre au groupe");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await workService.createGroup(formData.travailId, {
+        nomGroupe: formData.nomGroupe,
+        membresIds: selectedStudents.map((s) => s.id),
+      });
+      alert("Groupe créé avec succès !");
+      navigate("/trainer/groups");
+    } catch (error) {
+      console.error("Erreur création groupe:", error);
+      alert(
+        error.response?.data?.error || "Erreur lors de la création du groupe",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getInitials = (name) => {
@@ -95,31 +148,33 @@ export default function CreateGroup() {
               Informations du Groupe
             </h2>
             <div className="space-y-4">
-              <Input
-                label="Nom du groupe"
-                name="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="Ex: Groupe A"
-                required
-              />
-
               <Select
                 label="Travail concerné"
-                name="work"
-                value={formData.work}
+                name="travailId"
+                value={formData.travailId}
                 onChange={(e) =>
-                  setFormData({ ...formData, work: e.target.value })
+                  setFormData({ ...formData, travailId: e.target.value })
                 }
                 required
               >
                 <option value="">Sélectionner un travail</option>
-                <option value="1">Projet React E-commerce</option>
-                <option value="2">Mini-projet TypeScript</option>
-                <option value="3">Application Next.js</option>
+                {works.map((work) => (
+                  <option key={work.id} value={work.id}>
+                    {work.titre}
+                  </option>
+                ))}
               </Select>
+
+              <Input
+                label="Nom du groupe"
+                name="nomGroupe"
+                value={formData.nomGroupe}
+                onChange={(e) =>
+                  setFormData({ ...formData, nomGroupe: e.target.value })
+                }
+                placeholder="Ex: Groupe A"
+                required
+              />
             </div>
           </Card>
 
@@ -148,9 +203,7 @@ export default function CreateGroup() {
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-10 h-10 rounded-lg bg-gradient-to-br ${
-                          colors[idx % colors.length]
-                        } flex items-center justify-center text-white font-bold shadow-md`}
+                        className={`w-10 h-10 rounded-lg bg-gradient-to-br ${colors[idx % colors.length]} flex items-center justify-center text-white font-bold shadow-md`}
                       >
                         {getInitials(student.name)}
                       </div>
@@ -177,50 +230,54 @@ export default function CreateGroup() {
           </Card>
 
           {/* Add Members */}
-          <Card className="p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Ajouter des Membres
-            </h2>
+          {formData.travailId && (
+            <Card className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Ajouter des Membres
+              </h2>
 
-            <Input
-              placeholder="Rechercher un étudiant par nom ou matricule..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="mb-4"
-            />
+              <Input
+                placeholder="Rechercher un étudiant par nom ou matricule..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="mb-4"
+              />
 
-            <div className="max-h-64 overflow-y-auto space-y-2">
-              {filteredStudents.length === 0 ? (
-                <p className="text-center text-gray-500 py-4">
-                  Aucun étudiant disponible
-                </p>
-              ) : (
-                filteredStudents.map((student) => (
-                  <button
-                    key={student.id}
-                    type="button"
-                    onClick={() => addStudent(student)}
-                    className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white font-bold">
-                        {getInitials(student.name)}
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {filteredStudents.length === 0 ? (
+                  <p className="text-center text-gray-500 py-4">
+                    {searchTerm
+                      ? "Aucun étudiant trouvé"
+                      : "Aucun étudiant disponible"}
+                  </p>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <button
+                      key={student.id}
+                      type="button"
+                      onClick={() => addStudent(student)}
+                      className="w-full flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white font-bold">
+                          {getInitials(student.name)}
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-900">
+                            {student.name}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {student.matricule}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-left">
-                        <p className="font-semibold text-gray-900">
-                          {student.name}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {student.matricule}
-                        </p>
-                      </div>
-                    </div>
-                    <UserPlus className="w-5 h-5 text-purple-600" />
-                  </button>
-                ))
-              )}
-            </div>
-          </Card>
+                      <UserPlus className="w-5 h-5 text-purple-600" />
+                    </button>
+                  ))
+                )}
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Actions */}
@@ -229,33 +286,26 @@ export default function CreateGroup() {
             type="button"
             variant="outline"
             onClick={() => navigate("/trainer/groups")}
+            disabled={loading}
           >
             Annuler
           </Button>
           <Button
             type="submit"
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-            disabled={selectedStudents.length === 0}
+            disabled={loading || selectedStudents.length === 0}
           >
-            Créer le Groupe
+            {loading ? <Loader size="small" /> : "Créer le Groupe"}
           </Button>
         </div>
       </form>
 
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slideUp {
-          animation: slideUp 0.6s ease-out;
-        }
+        .animate-slideUp { animation: slideUp 0.6s ease-out; }
       `}</style>
     </div>
   );

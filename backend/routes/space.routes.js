@@ -66,6 +66,99 @@ router.post(
 );
 
 // ============================================
+// ✅ MES ESPACES PÉDAGOGIQUES (Formateur)
+// AJOUTÉ - Cette route doit être AVANT router.get('/')
+// ============================================
+
+router.get("/my-spaces", async (req, res, next) => {
+  try {
+    const { role, userId } = req.user;
+
+    if (role !== "FORMATEUR") {
+      return res.status(403).json({ error: "Accès réservé aux formateurs" });
+    }
+
+    const formateur = await prisma.formateur.findUnique({
+      where: { compteId: userId },
+    });
+
+    if (!formateur) {
+      return res.status(404).json({ error: "Profil formateur non trouvé" });
+    }
+
+    const espaces = await prisma.espacePedagogique.findMany({
+      where: {
+        OR: [
+          { formateurId: formateur.id },
+          { formateursSecondaires: { some: { formateurId: formateur.id } } },
+        ],
+        estActif: true,
+      },
+      include: {
+        promotion: true,
+        matiere: true,
+        formateur: {
+          select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            specialite: true,
+          },
+        },
+        formateursSecondaires: {
+          include: {
+            formateur: {
+              select: {
+                id: true,
+                nom: true,
+                prenom: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            inscriptions: true,
+            travaux: true,
+          },
+        },
+        inscriptions: {
+          include: {
+            etudiant: {
+              include: {
+                compte: {
+                  select: {
+                    email: true,
+                    estActif: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        travaux: {
+          where: { estActif: true },
+          orderBy: { dateDebut: "desc" },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    const espacesAvecStats = espaces.map((espace) => ({
+      ...espace,
+      nombreInscrits: espace._count.inscriptions,
+      nombreTravaux: espace._count.travaux,
+    }));
+
+    res.json({ espaces: espacesAvecStats });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================
 // LISTE DES ESPACES PÉDAGOGIQUES
 // ============================================
 
@@ -413,7 +506,7 @@ router.post(
         });
       }
 
-      // ✅ FIX: Inscrire les étudiants avec gestion des doublons
+      // Inscrire les étudiants avec gestion des doublons
       const results = await Promise.allSettled(
         etudiantIds.map(async (etudiantId) => {
           try {

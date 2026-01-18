@@ -1,70 +1,71 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Search, CheckSquare, Square, UserCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  Users,
+  Search,
+  CheckSquare,
+  Square,
+  UserCheck,
+} from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
+import Loader from "@/components/ui/Loader";
+import { workService } from "@/services/work.service";
 
 export default function AssignGroup() {
   const navigate = useNavigate();
-  
+  const [loading, setLoading] = useState(false);
+  const [works, setWorks] = useState([]);
+  const [groups, setGroups] = useState([]);
+
   const [formData, setFormData] = useState({
-    work: "",
-    space: "",
+    travailId: "",
   });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
 
-  // Mock data - groupes disponibles
-  const [groups] = useState([
-    {
-      id: 1,
-      name: "Groupe A",
-      work: "Projet React E-commerce",
-      members: [
-        { name: "Marie Dupont", initials: "MD" },
-        { name: "Jean Martin", initials: "JM" },
-        { name: "Sophie Bernard", initials: "SB" },
-      ],
-      createdBy: "formateur",
-    },
-    {
-      id: 2,
-      name: "Groupe B",
-      work: "Projet React E-commerce",
-      members: [
-        { name: "Pierre Laurent", initials: "PL" },
-        { name: "Emma Dubois", initials: "ED" },
-        { name: "Lucas Martin", initials: "LM" },
-      ],
-      createdBy: "formateur",
-    },
-    {
-      id: 3,
-      name: "Les Codeurs",
-      work: "Mini-projet TypeScript",
-      members: [
-        { name: "Alice Moreau", initials: "AM" },
-        { name: "Thomas Petit", initials: "TP" },
-      ],
-      createdBy: "etudiant",
-    },
-    {
-      id: 4,
-      name: "Team Alpha",
-      work: "Application Next.js",
-      members: [
-        { name: "Laura Blanc", initials: "LB" },
-        { name: "Marc Rousseau", initials: "MR" },
-        { name: "Nina Garcia", initials: "NG" },
-      ],
-      createdBy: "formateur",
-    },
-  ]);
+  useEffect(() => {
+    loadWorks();
+  }, []);
+
+  useEffect(() => {
+    if (formData.travailId) {
+      loadGroups(formData.travailId);
+    }
+  }, [formData.travailId]);
+
+  const loadWorks = async () => {
+    try {
+      const response = await workService.getAll({ typeTravail: "COLLECTIF" });
+      setWorks(response.travaux || []);
+    } catch (error) {
+      console.error("Erreur chargement travaux:", error);
+    }
+  };
+
+  const loadGroups = async (workId) => {
+    try {
+      const response = await workService.getGroups(workId);
+      const groupsData = (response.groupes || []).map((group) => ({
+        id: group.id,
+        name: group.nomGroupe,
+        work: formData.travailId,
+        members: group.membres || [],
+        createdBy:
+          group.modeFormation === "FORMATEUR" ? "formateur" : "etudiant",
+      }));
+      setGroups(groupsData);
+    } catch (error) {
+      console.error("Erreur chargement groupes:", error);
+      setGroups([]);
+    }
+  };
 
   const colors = [
     "from-purple-400 to-pink-400",
@@ -73,17 +74,15 @@ export default function AssignGroup() {
     "from-orange-400 to-amber-400",
   ];
 
-  const filteredGroups = groups.filter(
-    (group) =>
-      group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      group.work.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredGroups = groups.filter((group) =>
+    group.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const toggleGroup = (groupId) => {
     setSelectedGroups((prev) =>
       prev.includes(groupId)
         ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
+        : [...prev, groupId],
     );
   };
 
@@ -96,14 +95,28 @@ export default function AssignGroup() {
     setSelectAll(!selectAll);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Assignment data:", {
-      ...formData,
-      groups: selectedGroups,
-    });
-    // TODO: API call
-    navigate("/trainer/assignments");
+
+    if (selectedGroups.length === 0) {
+      alert("Veuillez sélectionner au moins un groupe");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Note: L'assignation de groupes se fait automatiquement lors de leur création
+      // Cette page sert principalement à visualiser les groupes existants
+      alert(
+        `${selectedGroups.length} groupe(s) sélectionné(s) pour le travail`,
+      );
+      navigate("/trainer/assignments");
+    } catch (error) {
+      console.error("Erreur:", error);
+      alert("Erreur lors de l'opération");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getTotalStudents = () => {
@@ -128,7 +141,9 @@ export default function AssignGroup() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             Assignation Collective
           </h1>
-          <p className="text-gray-600 mt-1">Assigner un travail à des groupes</p>
+          <p className="text-gray-600 mt-1">
+            Assigner un travail à des groupes
+          </p>
         </div>
       </div>
 
@@ -137,42 +152,35 @@ export default function AssignGroup() {
           {/* Left Column - Work Selection */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="p-6 sticky top-24">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Informations</h2>
-              
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Informations
+              </h2>
+
               <div className="space-y-4">
                 <Select
-                  label="Espace pédagogique"
-                  name="space"
-                  value={formData.space}
-                  onChange={(e) => setFormData({ ...formData, space: e.target.value })}
-                  required
-                >
-                  <option value="">Sélectionner un espace</option>
-                  <option value="1">React Avancé</option>
-                  <option value="2">Node.js API</option>
-                  <option value="3">TypeScript</option>
-                  <option value="4">Next.js</option>
-                </Select>
-
-                <Select
                   label="Travail à assigner"
-                  name="work"
-                  value={formData.work}
-                  onChange={(e) => setFormData({ ...formData, work: e.target.value })}
+                  name="travailId"
+                  value={formData.travailId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, travailId: e.target.value })
+                  }
                   required
                 >
                   <option value="">Sélectionner un travail</option>
-                  <option value="1">Projet React E-commerce</option>
-                  <option value="2">TP Node.js API REST</option>
-                  <option value="3">Mini-projet TypeScript</option>
-                  <option value="4">Application Next.js</option>
+                  {works.map((work) => (
+                    <option key={work.id} value={work.id}>
+                      {work.titre}
+                    </option>
+                  ))}
                 </Select>
 
                 {/* Selected Stats */}
                 <div className="mt-6 space-y-3">
                   <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Groupes sélectionnés</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Groupes sélectionnés
+                      </span>
                       <Badge variant="primary" className="text-lg px-3 py-1">
                         {selectedGroups.length}
                       </Badge>
@@ -186,7 +194,9 @@ export default function AssignGroup() {
 
                   <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Total étudiants</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Total étudiants
+                      </span>
                       <Badge variant="info" className="text-lg px-3 py-1">
                         {getTotalStudents()}
                       </Badge>
@@ -202,10 +212,21 @@ export default function AssignGroup() {
                   type="submit"
                   fullWidth
                   className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg mt-6"
-                  disabled={selectedGroups.length === 0 || !formData.work}
+                  disabled={
+                    selectedGroups.length === 0 ||
+                    !formData.travailId ||
+                    loading
+                  }
                 >
-                  <Users className="w-5 h-5 mr-2" />
-                  Assigner aux {selectedGroups.length} groupe{selectedGroups.length > 1 ? "s" : ""}
+                  {loading ? (
+                    <Loader size="small" />
+                  ) : (
+                    <>
+                      <Users className="w-5 h-5 mr-2" />
+                      Confirmer pour {selectedGroups.length} groupe
+                      {selectedGroups.length > 1 ? "s" : ""}
+                    </>
+                  )}
                 </Button>
               </div>
             </Card>
@@ -218,25 +239,27 @@ export default function AssignGroup() {
                 <h2 className="text-xl font-bold text-gray-900">
                   Liste des Groupes ({filteredGroups.length})
                 </h2>
-                <button
-                  type="button"
-                  onClick={toggleSelectAll}
-                  className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
-                >
-                  {selectAll ? (
-                    <CheckSquare className="w-5 h-5" />
-                  ) : (
-                    <Square className="w-5 h-5" />
-                  )}
-                  {selectAll ? "Tout désélectionner" : "Tout sélectionner"}
-                </button>
+                {filteredGroups.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    className="flex items-center gap-2 text-sm font-medium text-purple-600 hover:text-purple-700 transition-colors"
+                  >
+                    {selectAll ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                    {selectAll ? "Tout désélectionner" : "Tout sélectionner"}
+                  </button>
+                )}
               </div>
 
               {/* Search */}
               <div className="mb-4 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
-                  placeholder="Rechercher par nom de groupe ou travail..."
+                  placeholder="Rechercher par nom de groupe..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -245,10 +268,18 @@ export default function AssignGroup() {
 
               {/* Groups Grid */}
               <div className="max-h-[600px] overflow-y-auto space-y-3">
-                {filteredGroups.length === 0 ? (
+                {!formData.travailId ? (
                   <div className="text-center py-12 text-gray-500">
                     <Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                    <p>Aucun groupe trouvé</p>
+                    <p>Sélectionnez d'abord un travail</p>
+                  </div>
+                ) : filteredGroups.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Search className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                    <p>Aucun groupe trouvé pour ce travail</p>
+                    <p className="text-sm mt-2">
+                      Créez d'abord des groupes pour ce travail
+                    </p>
                   </div>
                 ) : (
                   filteredGroups.map((group, idx) => {
@@ -294,27 +325,39 @@ export default function AssignGroup() {
                             {/* Group Info */}
                             <div className="flex-1 text-left">
                               <div className="flex items-center gap-2 mb-2">
-                                <h3 className="text-lg font-bold text-gray-900">{group.name}</h3>
-                                <Badge variant={group.createdBy === "formateur" ? "primary" : "success"}>
-                                  {group.createdBy === "formateur" ? "Formateur" : "Étudiant"}
+                                <h3 className="text-lg font-bold text-gray-900">
+                                  {group.name}
+                                </h3>
+                                <Badge
+                                  variant={
+                                    group.createdBy === "formateur"
+                                      ? "primary"
+                                      : "success"
+                                  }
+                                >
+                                  {group.createdBy === "formateur"
+                                    ? "Formateur"
+                                    : "Étudiant"}
                                 </Badge>
                               </div>
-                              <p className="text-sm text-gray-600 mb-3">{group.work}</p>
 
                               {/* Members */}
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mt-3">
                                 <div className="flex -space-x-2">
-                                  {group.members.slice(0, 3).map((member, mIdx) => (
-                                    <div
-                                      key={mIdx}
-                                      className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
-                                        colors[mIdx % colors.length]
-                                      } flex items-center justify-center text-white font-bold text-xs border-2 border-white shadow-md`}
-                                      title={member.name}
-                                    >
-                                      {member.initials}
-                                    </div>
-                                  ))}
+                                  {group.members
+                                    .slice(0, 3)
+                                    .map((member, mIdx) => (
+                                      <div
+                                        key={mIdx}
+                                        className={`w-8 h-8 rounded-lg bg-gradient-to-br ${
+                                          colors[mIdx % colors.length]
+                                        } flex items-center justify-center text-white font-bold text-xs border-2 border-white shadow-md`}
+                                        title={`${member.etudiant?.prenom} ${member.etudiant?.nom}`}
+                                      >
+                                        {member.etudiant?.prenom?.[0]}
+                                        {member.etudiant?.nom?.[0]}
+                                      </div>
+                                    ))}
                                   {group.members.length > 3 && (
                                     <div className="w-8 h-8 rounded-lg bg-gray-400 flex items-center justify-center text-white font-bold text-xs border-2 border-white shadow-md">
                                       +{group.members.length - 3}
@@ -323,7 +366,8 @@ export default function AssignGroup() {
                                 </div>
                                 <span className="text-sm text-gray-600 flex items-center gap-1">
                                   <UserCheck className="w-4 h-4" />
-                                  {group.members.length} membre{group.members.length > 1 ? "s" : ""}
+                                  {group.members.length} membre
+                                  {group.members.length > 1 ? "s" : ""}
                                 </span>
                               </div>
                             </div>
@@ -348,18 +392,10 @@ export default function AssignGroup() {
 
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slideUp {
-          animation: slideUp 0.6s ease-out;
-        }
+        .animate-slideUp { animation: slideUp 0.6s ease-out; }
       `}</style>
     </div>
   );

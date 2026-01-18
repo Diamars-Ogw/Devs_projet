@@ -35,6 +35,7 @@ import SubmissionsList from "@/pages/trainer/submissions/SubmissionsList";
 import EvaluateWork from "@/pages/trainer/evaluation/EvaluateWork";
 import AssignIndividual from "@/pages/trainer/assignments/AssignIndividual";
 import AssignGroup from "@/pages/trainer/assignments/AssignGroup";
+import SpaceDetails from "../pages/trainer/spaces/SpaceDetails";
 
 // Student
 import StudentLayout from "@/pages/student/StudentLayout";
@@ -108,6 +109,8 @@ export const router = createBrowserRouter([
           { path: "submissions/evaluate/:id", element: <EvaluateWork /> },
           { path: "assignments/individual", element: <AssignIndividual /> },
           { path: "assignments/group", element: <AssignGroup /> },
+          // Dans la section des routes Formateur
+          { path: "trainer/spaces/:id", element: <SpaceDetails /> },
         ],
       },
 

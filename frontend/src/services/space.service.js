@@ -19,6 +19,12 @@ export const spaceService = {
     return response.data;
   },
 
+  // ✅ NOUVELLE MÉTHODE AJOUTÉE
+  async getMySpaces() {
+    const response = await api.get("/spaces/my-spaces");
+    return response.data;
+  },
+
   async getById(id) {
     const response = await api.get(`/spaces/${id}`);
     return response.data;

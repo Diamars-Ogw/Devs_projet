@@ -7,49 +7,67 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import Modal from "@/components/ui/Modal";
+import Loader from "@/components/ui/Loader";
+import { workService } from "@/services/work.service";
+import { spaceService } from "@/services/space.service";
+import { uploadService } from "@/services/upload.service";
 
 export default function EditWork() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [spaces, setSpaces] = useState([]);
+  const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",
-    space: "",
-    type: "INDIVIDUEL",
-    groupMode: "NON_APPLICABLE",
-    startDate: "",
-    endDate: "",
-    instructions: "",
-    file: null,
+    espacePedagogiqueId: "",
+    titre: "",
+    typeTravail: "INDIVIDUEL",
+    modeGroupe: "NON_APPLICABLE",
+    dateDebut: "",
+    dateFin: "",
+    consignes: "",
+    fichierConsigneUrl: null,
   });
 
   useEffect(() => {
-    // TODO: Fetch work data by ID
-    // Mock data for now
-    setFormData({
-      title: "Projet React E-commerce",
-      space: "1",
-      type: "COLLECTIF",
-      groupMode: "FORMATEUR",
-      startDate: "2024-01-01",
-      endDate: "2024-01-15",
-      instructions: "Créer une application e-commerce complète avec React...",
-      file: null,
-    });
+    loadData();
   }, [id]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Updated data:", formData);
-    // TODO: API call
-    navigate("/trainer/works");
-  };
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [workRes, spacesRes] = await Promise.all([
+        workService.getById(id),
+        spaceService.getAll(),
+      ]);
 
-  const handleDelete = () => {
-    console.log("Deleting work:", id);
-    // TODO: API call
-    navigate("/trainer/works");
+      const work = workRes;
+      setSpaces(spacesRes.espaces || []);
+
+      setFormData({
+        espacePedagogiqueId: work.espacePedagogiqueId?.toString() || "",
+        titre: work.titre || "",
+        typeTravail: work.typeTravail || "INDIVIDUEL",
+        modeGroupe: work.modeGroupe || "NON_APPLICABLE",
+        dateDebut: work.dateDebut
+          ? new Date(work.dateDebut).toISOString().split("T")[0]
+          : "",
+        dateFin: work.dateFin
+          ? new Date(work.dateFin).toISOString().split("T")[0]
+          : "",
+        consignes: work.consignes || "",
+        fichierConsigneUrl: work.fichierConsigneUrl || null,
+      });
+    } catch (error) {
+      console.error("Erreur chargement travail:", error);
+      alert("Erreur lors du chargement du travail");
+      navigate("/trainer/works");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -57,11 +75,70 @@ export default function EditWork() {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
-      ...(name === "type" && value === "INDIVIDUEL"
-        ? { groupMode: "NON_APPLICABLE" }
+      ...(name === "typeTravail" && value === "INDIVIDUEL"
+        ? { modeGroupe: "NON_APPLICABLE" }
         : {}),
     }));
   };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      const result = await uploadService.uploadFile(file);
+      setFormData((prev) => ({ ...prev, fichierConsigneUrl: result.url }));
+    } catch (error) {
+      console.error("Erreur upload:", error);
+      alert("Erreur lors de l'upload du fichier");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (
+      formData.typeTravail === "COLLECTIF" &&
+      formData.modeGroupe === "NON_APPLICABLE"
+    ) {
+      alert("Veuillez sélectionner un mode de formation des groupes");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await workService.update(id, formData);
+      alert("Travail modifié avec succès !");
+      navigate("/trainer/works");
+    } catch (error) {
+      console.error("Erreur modification travail:", error);
+      alert(error.response?.data?.error || "Erreur lors de la modification");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await workService.delete(id);
+      alert("Travail supprimé avec succès");
+      navigate("/trainer/works");
+    } catch (error) {
+      console.error("Erreur suppression:", error);
+      alert(error.response?.data?.error || "Erreur lors de la suppression");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader size="large" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-slideUp">
@@ -79,9 +156,7 @@ export default function EditWork() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               Modifier le Travail
             </h1>
-            <p className="text-gray-600 mt-1">
-              Mettre à jour les informations du travail
-            </p>
+            <p className="text-gray-600 mt-1">Mettre à jour les informations</p>
           </div>
         </div>
         <Button
@@ -105,25 +180,25 @@ export default function EditWork() {
               <div className="space-y-4">
                 <Input
                   label="Titre du travail"
-                  name="title"
-                  value={formData.title}
+                  name="titre"
+                  value={formData.titre}
                   onChange={handleChange}
-                  placeholder="Ex: Projet React E-commerce"
                   required
                 />
 
                 <Select
                   label="Espace pédagogique"
-                  name="space"
-                  value={formData.space}
+                  name="espacePedagogiqueId"
+                  value={formData.espacePedagogiqueId}
                   onChange={handleChange}
                   required
                 >
                   <option value="">Sélectionner un espace</option>
-                  <option value="1">React Avancé</option>
-                  <option value="2">Node.js API</option>
-                  <option value="3">TypeScript</option>
-                  <option value="4">Next.js</option>
+                  {spaces.map((space) => (
+                    <option key={space.id} value={space.id}>
+                      {space.nom} - {space.promotion?.nom}
+                    </option>
+                  ))}
                 </Select>
 
                 <div className="space-y-3">
@@ -134,59 +209,55 @@ export default function EditWork() {
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
-                        name="type"
+                        name="typeTravail"
                         value="INDIVIDUEL"
-                        checked={formData.type === "INDIVIDUEL"}
+                        checked={formData.typeTravail === "INDIVIDUEL"}
                         onChange={handleChange}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 text-purple-600"
                       />
-                      <span className="text-gray-700">Travail Individuel</span>
+                      <span>Travail Individuel</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
-                        name="type"
+                        name="typeTravail"
                         value="COLLECTIF"
-                        checked={formData.type === "COLLECTIF"}
+                        checked={formData.typeTravail === "COLLECTIF"}
                         onChange={handleChange}
-                        className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                        className="w-4 h-4 text-purple-600"
                       />
-                      <span className="text-gray-700">Travail Collectif</span>
+                      <span>Travail Collectif</span>
                     </label>
                   </div>
                 </div>
 
-                {formData.type === "COLLECTIF" && (
+                {formData.typeTravail === "COLLECTIF" && (
                   <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <label className="block text-sm font-medium text-gray-700">
-                      Mode de formation des groupes (si collectif)
+                      Mode de formation des groupes
                     </label>
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="radio"
-                          name="groupMode"
+                          name="modeGroupe"
                           value="FORMATEUR"
-                          checked={formData.groupMode === "FORMATEUR"}
+                          checked={formData.modeGroupe === "FORMATEUR"}
                           onChange={handleChange}
-                          className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                          className="w-4 h-4 text-purple-600"
                         />
-                        <span className="text-gray-700">
-                          Groupes définis par le formateur
-                        </span>
+                        <span>Formateur</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="radio"
-                          name="groupMode"
+                          name="modeGroupe"
                           value="ETUDIANT"
-                          checked={formData.groupMode === "ETUDIANT"}
+                          checked={formData.modeGroupe === "ETUDIANT"}
                           onChange={handleChange}
-                          className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                          className="w-4 h-4 text-purple-600"
                         />
-                        <span className="text-gray-700">
-                          Groupes formés par les étudiants
-                        </span>
+                        <span>Étudiants</span>
                       </label>
                     </div>
                   </div>
@@ -196,16 +267,16 @@ export default function EditWork() {
                   <Input
                     type="date"
                     label="Date de début"
-                    name="startDate"
-                    value={formData.startDate}
+                    name="dateDebut"
+                    value={formData.dateDebut}
                     onChange={handleChange}
                     required
                   />
                   <Input
                     type="date"
                     label="Date de fin"
-                    name="endDate"
-                    value={formData.endDate}
+                    name="dateFin"
+                    value={formData.dateFin}
                     onChange={handleChange}
                     required
                   />
@@ -213,10 +284,9 @@ export default function EditWork() {
 
                 <Textarea
                   label="Consignes"
-                  name="instructions"
-                  value={formData.instructions}
+                  name="consignes"
+                  value={formData.consignes}
                   onChange={handleChange}
-                  placeholder="Décrivez les consignes du travail..."
                   rows={6}
                   required
                 />
@@ -225,22 +295,25 @@ export default function EditWork() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Fichier de consignes (optionnel)
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors cursor-pointer">
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-500 transition-colors">
                     <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600">
-                      Cliquez pour télécharger un fichier ou glissez-déposez
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      PDF, DOCX, ZIP (max. 10MB)
+                      {uploading
+                        ? "Upload en cours..."
+                        : "Cliquez pour télécharger"}
                     </p>
                     <input
                       type="file"
                       className="hidden"
                       accept=".pdf,.docx,.zip"
-                      onChange={(e) =>
-                        setFormData({ ...formData, file: e.target.files[0] })
-                      }
+                      onChange={handleFileChange}
+                      disabled={uploading}
                     />
+                    {formData.fichierConsigneUrl && (
+                      <p className="text-sm text-green-600 mt-2">
+                        ✓ Fichier présent
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -253,19 +326,21 @@ export default function EditWork() {
             type="button"
             variant="outline"
             onClick={() => navigate("/trainer/works")}
+            disabled={saving}
           >
             Annuler
           </Button>
           <Button
             type="submit"
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            className="bg-gradient-to-r from-purple-600 to-pink-600"
+            disabled={saving}
           >
-            Enregistrer les Modifications
+            {saving ? <Loader size="small" /> : "Enregistrer"}
           </Button>
         </div>
       </form>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -274,7 +349,7 @@ export default function EditWork() {
         <div className="space-y-4">
           <p className="text-gray-600">
             Êtes-vous sûr de vouloir supprimer le travail{" "}
-            <strong>{formData.title}</strong> ?
+            <strong>{formData.titre}</strong> ?
           </p>
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <p className="text-sm text-orange-800">
@@ -297,18 +372,10 @@ export default function EditWork() {
 
       <style>{`
         @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-slideUp {
-          animation: slideUp 0.6s ease-out;
-        }
+        .animate-slideUp { animation: slideUp 0.6s ease-out; }
       `}</style>
     </div>
   );
