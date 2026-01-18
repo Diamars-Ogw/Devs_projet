@@ -6,38 +6,83 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Toast from "@/components/ui/Toast";
+import { promotionService } from "@/services/promotion.service";
 import { NIVEAUX_ETUDES } from "@/utils/constants";
 
 const CreatePromotion = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
   const [formData, setFormData] = useState({
     nom: "",
     code: "",
-    annee_academique: new Date().getFullYear(),
-    niveau_etudes: "",
-    date_debut: "",
-    date_fin: "",
-    capacite_max: "",
+    anneeAcademique: new Date().getFullYear(),
+    niveauEtudes: "",
+    dateDebut: "",
+    dateFin: "",
+    capaciteMax: "",
     description: "",
-    est_active: true,
   });
+  const [errors, setErrors] = useState({});
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.nom.trim()) newErrors.nom = "Le nom est requis";
+    if (!formData.code.trim()) newErrors.code = "Le code est requis";
+    if (!formData.dateDebut)
+      newErrors.dateDebut = "La date de début est requise";
+    if (!formData.dateFin) newErrors.dateFin = "La date de fin est requise";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
+
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log("Promotion créée:", formData);
-    navigate("/director/promotions");
+    try {
+      await promotionService.create(formData);
+      setToast({
+        show: true,
+        message: "Promotion créée avec succès",
+        type: "success",
+      });
+      setTimeout(() => navigate("/director/promotions"), 1500);
+    } catch (error) {
+      console.error("Erreur création:", error);
+      setToast({
+        show: true,
+        message: error.response?.data?.error || "Erreur lors de la création",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast({ show: false, message: "", type: "" })}
+          />
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -62,6 +107,7 @@ const CreatePromotion = () => {
               name="nom"
               value={formData.nom}
               onChange={handleChange}
+              error={errors.nom}
               required
             />
             <Input
@@ -69,47 +115,50 @@ const CreatePromotion = () => {
               name="code"
               value={formData.code}
               onChange={handleChange}
+              error={errors.code}
               placeholder="WD2024"
               required
             />
             <Input
               label="Année Académique"
-              name="annee_academique"
+              name="anneeAcademique"
               type="number"
-              value={formData.annee_academique}
+              value={formData.anneeAcademique}
               onChange={handleChange}
               required
             />
             <Select
               label="Niveau d'Études"
-              name="niveau_etudes"
-              value={formData.niveau_etudes}
+              name="niveauEtudes"
+              value={formData.niveauEtudes}
               onChange={handleChange}
               options={NIVEAUX_ETUDES}
-              required
             />
             <Input
               label="Date de Début"
-              name="date_debut"
+              name="dateDebut"
               type="date"
-              value={formData.date_debut}
+              value={formData.dateDebut}
               onChange={handleChange}
+              error={errors.dateDebut}
               required
             />
             <Input
               label="Date de Fin"
-              name="date_fin"
+              name="dateFin"
               type="date"
-              value={formData.date_fin}
+              value={formData.dateFin}
               onChange={handleChange}
+              error={errors.dateFin}
               required
             />
             <Input
               label="Capacité Maximale"
-              name="capacite_max"
+              name="capaciteMax"
               type="number"
-              value={formData.capacite_max}
+              value={formData.capaciteMax}
               onChange={handleChange}
+              placeholder="50"
             />
             <div className="md:col-span-2">
               <Textarea

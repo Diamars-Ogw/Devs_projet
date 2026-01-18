@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save } from "lucide-react";
 import Card from "@/components/ui/Card";
@@ -6,36 +6,110 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
+import Toast from "@/components/ui/Toast";
+import { spaceService } from "@/services/space.service";
+import { promotionService } from "@/services/promotion.service";
+import { userService } from "@/services/user.service";
 
 const CreateSpace = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [promotions, setPromotions] = useState([]);
+  const [matieres, setMatieres] = useState([]);
+  const [formateurs, setFormateurs] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
   const [formData, setFormData] = useState({
     nom: "",
-    promotion_id: "",
-    matiere_id: "",
-    formateur_id: "",
+    promotionId: "",
+    matiereId: "",
+    formateurId: "",
     description: "",
     semestre: "",
-    volume_horaire_total: "",
-    date_debut: "",
-    date_fin: "",
+    volumeHoraireTotal: "",
+    dateDebut: "",
+    dateFin: "",
   });
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    try {
+      const [promosData, matieresData, usersData] = await Promise.all([
+        promotionService.getAll({ estActive: "true" }),
+        spaceService.getMatieres(),
+        userService.getAll({ role: "FORMATEUR", estActif: "true" }),
+      ]);
+
+      setPromotions(promosData.promotions || []);
+      setMatieres(matieresData.matieres || []);
+      setFormateurs(usersData.users || []);
+    } catch (error) {
+      console.error("Erreur chargement données:", error);
+      showToast("Erreur de chargement des données", "error");
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.nom.trim()) newErrors.nom = "Le nom est requis";
+    if (!formData.promotionId)
+      newErrors.promotionId = "La promotion est requise";
+    if (!formData.matiereId) newErrors.matiereId = "La matière est requise";
+    if (!formData.formateurId)
+      newErrors.formateurId = "Le formateur est requis";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
+
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    navigate("/director/spaces");
+    try {
+      await spaceService.create(formData);
+      showToast("Espace créé avec succès", "success");
+      setTimeout(() => navigate("/director/spaces"), 1500);
+    } catch (error) {
+      console.error("Erreur création:", error);
+      showToast(
+        error.response?.data?.error || "Erreur lors de la création",
+        "error",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
   return (
     <div className="space-y-6">
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast({ show: false, message: "", type: "" })}
+          />
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -62,39 +136,43 @@ const CreateSpace = () => {
               name="nom"
               value={formData.nom}
               onChange={handleChange}
+              error={errors.nom}
               required
             />
             <Select
               label="Promotion"
-              name="promotion_id"
-              value={formData.promotion_id}
+              name="promotionId"
+              value={formData.promotionId}
               onChange={handleChange}
-              options={[
-                { value: "1", label: "Web Dev 2024" },
-                { value: "2", label: "Data Science 2024" },
-              ]}
+              error={errors.promotionId}
+              options={promotions.map((p) => ({
+                value: p.id.toString(),
+                label: `${p.nom} (${p.code})`,
+              }))}
               required
             />
             <Select
               label="Matière"
-              name="matiere_id"
-              value={formData.matiere_id}
+              name="matiereId"
+              value={formData.matiereId}
               onChange={handleChange}
-              options={[
-                { value: "1", label: "React Avancé" },
-                { value: "2", label: "Node.js" },
-              ]}
+              error={errors.matiereId}
+              options={matieres.map((m) => ({
+                value: m.id.toString(),
+                label: m.nom,
+              }))}
               required
             />
             <Select
               label="Formateur Principal"
-              name="formateur_id"
-              value={formData.formateur_id}
+              name="formateurId"
+              value={formData.formateurId}
               onChange={handleChange}
-              options={[
-                { value: "1", label: "Jean Martin" },
-                { value: "2", label: "Sophie Bernard" },
-              ]}
+              error={errors.formateurId}
+              options={formateurs.map((f) => ({
+                value: f.id.toString(),
+                label: `${f.nom} ${f.prenom}`,
+              }))}
               required
             />
             <Select
@@ -106,27 +184,27 @@ const CreateSpace = () => {
                 { value: "1", label: "Semestre 1" },
                 { value: "2", label: "Semestre 2" },
               ]}
-              required
             />
             <Input
               label="Volume Horaire"
-              name="volume_horaire_total"
+              name="volumeHoraireTotal"
               type="number"
-              value={formData.volume_horaire_total}
+              value={formData.volumeHoraireTotal}
               onChange={handleChange}
+              placeholder="40"
             />
             <Input
               label="Date Début"
-              name="date_debut"
+              name="dateDebut"
               type="date"
-              value={formData.date_debut}
+              value={formData.dateDebut}
               onChange={handleChange}
             />
             <Input
               label="Date Fin"
-              name="date_fin"
+              name="dateFin"
               type="date"
-              value={formData.date_fin}
+              value={formData.dateFin}
               onChange={handleChange}
             />
             <div className="md:col-span-2">

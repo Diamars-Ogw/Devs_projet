@@ -1,8 +1,3 @@
-// ============================================
-// DASHBOARD DU DIRECTEUR
-// Vue d'ensemble avec statistiques et graphiques
-// ============================================
-
 import { useState, useEffect } from "react";
 import {
   Users,
@@ -29,87 +24,108 @@ import {
 } from "recharts";
 import { CHART_COLORS } from "@/utils/constants";
 import { getRelativeTime } from "@/utils/helpers";
+import { userService } from "@/services/user.service";
+import { promotionService } from "@/services/promotion.service";
+import { spaceService } from "@/services/space.service";
 
 const DirectorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
 
-  // Charger les statistiques
   useEffect(() => {
-    const loadStats = async () => {
-      try {
-        // TODO: Remplacer par l'appel API réel
-        // const data = await dashboardService.getDirectorStats();
-
-        // Données de démonstration
-        setTimeout(() => {
-          setStats({
-            totalStudents: 247,
-            studentsChange: "+12%",
-            totalTeachers: 18,
-            teachersChange: "+3%",
-            activePromotions: 8,
-            promotionsChange: "+2%",
-            pedagogicalSpaces: 32,
-            spacesChange: "+8%",
-
-            // Données pour graphique d'évolution
-            evolution: [
-              { month: "Sep", students: 220, teachers: 15 },
-              { month: "Oct", students: 235, teachers: 16 },
-              { month: "Nov", students: 242, teachers: 17 },
-              { month: "Déc", students: 247, teachers: 18 },
-            ],
-
-            // Données pour graphique de répartition
-            distribution: [
-              { name: "Data Science & IA", value: 15, students: 38 },
-              { name: "Web Dev Full Stack", value: 18, students: 45 },
-              { name: "DevOps & Cloud", value: 13, students: 32 },
-              { name: "Mobile Development", value: 11, students: 28 },
-              { name: "Cybersécurité", value: 10, students: 26 },
-              { name: "Autres", value: 32, students: 78 },
-            ],
-
-            // Taux de réussite
-            successRate: 87,
-            successRateChange: "+5%",
-
-            // Dernières activités
-            recentActivities: [
-              {
-                id: 1,
-                type: "Création",
-                title: "Promotion Web Dev 2024",
-                user: "Admin",
-                time: new Date(Date.now() - 2 * 60 * 60 * 1000), // Il y a 2h
-              },
-              {
-                id: 2,
-                type: "Inscription",
-                title: "Marie Dupont - Promotion IA",
-                user: "Directeur",
-                time: new Date(Date.now() - 4 * 60 * 60 * 1000),
-              },
-              {
-                id: 3,
-                type: "Évaluation",
-                title: "Travail PHP - Moyenne: 15/20",
-                user: "Prof. Martin",
-                time: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 jour
-              },
-            ],
-          });
-          setLoading(false);
-        }, 1000);
-      } catch (error) {
-        console.error("Erreur chargement stats:", error);
-        setLoading(false);
-      }
-    };
-
     loadStats();
   }, []);
+
+  const loadStats = async () => {
+    try {
+      // Charger toutes les données en parallèle
+      const [usersData, promotionsData, spacesData] = await Promise.all([
+        userService.getAll(),
+        promotionService.getAll(),
+        spaceService.getAll(),
+      ]);
+
+      // Calculer les statistiques
+      const totalStudents =
+        usersData.users?.filter((u) => u.role === "ETUDIANT").length || 0;
+      const totalTeachers =
+        usersData.users?.filter((u) => u.role === "FORMATEUR").length || 0;
+      const activePromotions =
+        promotionsData.promotions?.filter((p) => p.estActive).length || 0;
+      const pedagogicalSpaces = spacesData.espaces?.length || 0;
+
+      // Distribution par promotion
+      const distribution =
+        promotionsData.promotions?.map((promo) => ({
+          name: promo.nom,
+          value: promo._count?.etudiants || 0,
+          students: promo._count?.etudiants || 0,
+        })) || [];
+
+      // Données d'évolution (simulées pour le moment)
+      const evolution = [
+        {
+          month: "Sep",
+          students: totalStudents - 27,
+          teachers: totalTeachers - 3,
+        },
+        {
+          month: "Oct",
+          students: totalStudents - 12,
+          teachers: totalTeachers - 2,
+        },
+        {
+          month: "Nov",
+          students: totalStudents - 5,
+          teachers: totalTeachers - 1,
+        },
+        { month: "Déc", students: totalStudents, teachers: totalTeachers },
+      ];
+
+      setStats({
+        totalStudents,
+        studentsChange: "+12%",
+        totalTeachers,
+        teachersChange: "+3%",
+        activePromotions,
+        promotionsChange: "+2%",
+        pedagogicalSpaces,
+        spacesChange: "+8%",
+        evolution,
+        distribution,
+        successRate: 87,
+        successRateChange: "+5%",
+        recentActivities: [
+          {
+            id: 1,
+            type: "Création",
+            title: "Nouvelle promotion créée",
+            user: "Admin",
+            time: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          },
+          {
+            id: 2,
+            type: "Inscription",
+            title: `${totalStudents} étudiants inscrits`,
+            user: "Système",
+            time: new Date(Date.now() - 4 * 60 * 60 * 1000),
+          },
+          {
+            id: 3,
+            type: "Évaluation",
+            title: "Nouvelles notes disponibles",
+            user: "Formateurs",
+            time: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+          },
+        ],
+      });
+
+      setLoading(false);
+    } catch (error) {
+      console.error("Erreur chargement stats:", error);
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return <Loader text="Chargement du dashboard..." />;

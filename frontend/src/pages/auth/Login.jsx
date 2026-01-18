@@ -1,159 +1,240 @@
-// ============================================
-// PAGE DE CONNEXION
-// Fichier: src/pages/auth/Login.jsx
-// ============================================
-
-import { useState } from "react";
-import { GraduationCap, Mail, Lock } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
-import Button from "@/components/ui/Button";
-import Input from "@/components/ui/Input";
-import Card from "@/components/ui/Card";
-import { DEMO_ACCOUNTS } from "@/utils/constants";
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { Eye, EyeOff, LogIn, Sparkles } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [motDePasse, setMotDePasse] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [isVisible, setIsVisible] = useState(false);
 
   const { login } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     try {
-      await login(email, password);
-      // La redirection est gérée automatiquement par le AuthContext
+      const response = await login(email, motDePasse);
+      
+      // Redirection selon le rôle
+      const roleRedirects = {
+        DIRECTEUR: '/director/dashboard',
+        FORMATEUR: '/trainer/dashboard',
+        ETUDIANT: '/student/dashboard'
+      };
+
+      const redirectPath = roleRedirects[response.user.role] || '/dashboard';
+      navigate(redirectPath);
     } catch (err) {
-      setError(
-        err.response?.data?.message || "Email ou mot de passe incorrect"
-      );
+      setError(err.response?.data?.error || 'Erreur de connexion. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Fonction pour pré-remplir l'email (comptes de démo)
-  const fillEmail = (demoEmail) => {
-    setEmail(demoEmail);
-    setPassword("password123"); // Mot de passe par défaut pour la démo
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-orange-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Card principale */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8 animate-slide-up">
-          {/* Logo animé avec étoile qui tourne */}
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="w-20 h-20 bg-gradient-to-br from-purple-600 to-primary-500 rounded-2xl flex items-center justify-center animate-pulse-slow shadow-lg">
-                <GraduationCap className="w-10 h-10 text-white" />
-              </div>
-              {/* Étoile animée */}
-              <div className="absolute -top-1 -right-1 text-2xl animate-spin-slow">
-                ⭐
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-4 relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-40 left-40 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+      </div>
 
-          {/* Titre avec gradient */}
-          <h1 className="text-3xl font-bold text-center text-gradient mb-2">
-            EduPlatform
-          </h1>
-          <p className="text-center text-gray-600 mb-8">
-            Connectez-vous pour accéder à votre espace
-          </p>
-
-          {/* Formulaire de connexion */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              placeholder="exemple@academie.fr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              icon={Mail}
-              required
-            />
-
-            <Input
-              label="Mot de passe"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              icon={Lock}
-              required
-            />
-
-            {/* Message d'erreur */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm animate-slide-down">
-                {error}
-              </div>
-            )}
-
-            {/* Lien mot de passe oublié */}
-            <div className="text-right">
-              <a
-                href="#"
-                className="text-sm text-purple-600 hover:text-purple-700 transition-colors"
-              >
-                Mot de passe oublié ?
-              </a>
-            </div>
-
-            {/* Bouton de connexion */}
-            <Button
-              type="submit"
-              fullWidth
-              loading={loading}
-              className="shadow-lg"
-            >
-              Se connecter
-            </Button>
-          </form>
-
-          {/* Comptes de démonstration */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-600 text-center mb-3 font-medium">
-              COMPTES DE DÉMONSTRATION
-            </p>
-            <div className="space-y-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  onClick={() => fillEmail(account.email)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-all group"
-                >
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                      {account.email}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Mot de passe: password123
-                    </p>
-                  </div>
-                  <span
-                    className={`text-xs px-3 py-1 rounded-full font-medium bg-${account.color}-100 text-${account.color}-700`}
-                  >
-                    {account.role}
-                  </span>
-                </button>
-              ))}
+      {/* Login Card */}
+      <div 
+        className={`relative w-full max-w-md transform transition-all duration-700 ${
+          isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+        }`}
+      >
+        {/* Logo animé avec effet de scintillement */}
+        <div className="flex justify-center mb-8">
+          <div className="relative group">
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-lg opacity-75 group-hover:opacity-100 transition-opacity animate-pulse"></div>
+            <div className="relative bg-white rounded-full p-6 shadow-2xl">
+              <Sparkles className="w-12 h-12 text-purple-600 animate-spin-slow" />
             </div>
           </div>
         </div>
 
+        {/* Main Card */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/20">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-white mb-2">Bienvenue</h1>
+            <p className="text-white/70">Connectez-vous à votre compte</p>
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl backdrop-blur-sm animate-shake">
+              <p className="text-white text-sm text-center">{error}</p>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Input */}
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-medium text-white/90">
+                Adresse email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="exemple@eduplatform.com"
+                required
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm transition-all"
+              />
+            </div>
+
+            {/* Password Input */}
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-medium text-white/90">
+                Mot de passe
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={motDePasse}
+                  onChange={(e) => setMotDePasse(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent backdrop-blur-sm transition-all pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Forgot Password Link */}
+            <div className="flex justify-end">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-purple-300 hover:text-purple-200 transition-colors"
+              >
+                Mot de passe oublié ?
+              </Link>
+            </div>
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Connexion...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn size={20} />
+                  <span>Se connecter</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Quick Login Hint (Dev only) */}
+          {import.meta.env.DEV && (
+            <div className="mt-6 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-xl backdrop-blur-sm">
+              <p className="text-xs text-yellow-200 text-center mb-2 font-semibold">
+                🧪 Mode Développement - Comptes de test
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {[
+                  { role: 'Directeur', email: 'directeur@eduplatform.com' },
+                  { role: 'Formateur', email: 'formateur1@eduplatform.com' },
+                  { role: 'Étudiant', email: 'etudiant1@eduplatform.com' }
+                ].map(({ role, email: testEmail }) => (
+                  <button
+                    key={role}
+                    type="button"
+                    onClick={() => {
+                      setEmail(testEmail);
+                      setMotDePasse('password123');
+                    }}
+                    className="bg-white/10 hover:bg-white/20 text-white py-2 px-2 rounded-lg transition-colors"
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-yellow-200 text-center mt-2">
+                Mot de passe: <code className="bg-black/20 px-2 py-1 rounded">password123</code>
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
-          © 2025 EduPlatform - Tous droits réservés
-        </p>
+        <div className="text-center mt-6">
+          <p className="text-white/60 text-sm">
+            © 2025 EduPlatform. Tous droits réservés.
+          </p>
+        </div>
       </div>
+
+      {/* Custom Animations */}
+      <style jsx>{`
+        @keyframes blob {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          25% { transform: translate(20px, -50px) scale(1.1); }
+          50% { transform: translate(-20px, 20px) scale(0.9); }
+          75% { transform: translate(50px, 50px) scale(1.05); }
+        }
+
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          75% { transform: translateX(5px); }
+        }
+
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+
+        .animate-shake {
+          animation: shake 0.3s;
+        }
+
+        .animate-spin-slow {
+          animation: spin-slow 3s linear infinite;
+        }
+      `}</style>
     </div>
   );
 };

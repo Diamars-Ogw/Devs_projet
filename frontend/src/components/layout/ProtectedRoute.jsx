@@ -1,31 +1,23 @@
+import React from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
-import Loader from "@/components/ui/Loader";
+import { useAuth } from "../../hooks/useAuth";
+import Loader from "../ui/Loader";
 
-/**
- * Composant pour protéger les routes
- * Redirige vers /login si non authentifié
- * Redirige vers / si le rôle n'est pas autorisé
- */
-const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { user, loading, isAuthenticated } = useAuth();
+const ProtectedRoute = ({ children, roles = [] }) => {
+  const { user, loading } = useAuth();
 
-  // Attendre le chargement
   if (loading) {
-    return <Loader fullScreen text="Vérification..." />;
+    return <Loader />;
   }
 
-  // Pas authentifié → redirection login
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Vérifier le rôle si spécifié
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
-    return <Navigate to="/" replace />;
+  if (roles.length > 0 && !roles.includes(user.role)) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
-  // OK, afficher le contenu
   return children;
 };
 

@@ -1,9 +1,4 @@
-// ============================================
-// CRÉATION D'UTILISATEUR - PAGE COMPLÈTE
-// Fichier: src/pages/director/users/CreateUser.jsx
-// ============================================
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -20,16 +15,16 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
-import {
-  ROLES,
-  GRADES_FORMATEUR,
-  GENRES,
-  NIVEAUX_ETUDES,
-} from "@/utils/constants";
+import Toast from "@/components/ui/Toast";
+import { userService } from "@/services/user.service";
+import { promotionService } from "@/services/promotion.service";
+import { ROLES, GRADES_FORMATEUR, GENRES } from "@/utils/constants";
 
 const CreateUser = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [promotions, setPromotions] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
   const [formData, setFormData] = useState({
     nom: "",
     prenom: "",
@@ -37,35 +32,39 @@ const CreateUser = () => {
     role: "ETUDIANT",
     telephone: "",
     // Champs Étudiant
-    matricule: "",
-    promotion_id: "",
-    date_naissance: "",
+    promotionId: "",
+    dateNaissance: "",
     genre: "",
-    annee_inscription: new Date().getFullYear(),
     // Champs Formateur
     specialite: "",
     grade: "",
     departement: "",
     bureau: "",
-    // Champs Technicien
-    service: "",
-    poste: "",
-    permissions_speciales: "",
   });
 
   const [errors, setErrors] = useState({});
 
-  // Gestion du changement de valeur
+  // Charger les promotions
+  useEffect(() => {
+    const loadPromotions = async () => {
+      try {
+        const data = await promotionService.getAll({ estActive: "true" });
+        setPromotions(data.promotions || []);
+      } catch (error) {
+        console.error("Erreur chargement promotions:", error);
+      }
+    };
+    loadPromotions();
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Effacer l'erreur du champ modifié
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  // Validation du formulaire
   const validate = () => {
     const newErrors = {};
 
@@ -78,10 +77,8 @@ const CreateUser = () => {
 
     // Validation selon le rôle
     if (formData.role === "ETUDIANT") {
-      if (!formData.matricule.trim())
-        newErrors.matricule = "Le matricule est requis";
-      if (!formData.promotion_id)
-        newErrors.promotion_id = "La promotion est requise";
+      if (!formData.promotionId)
+        newErrors.promotionId = "La promotion est requise";
     }
 
     if (formData.role === "FORMATEUR") {
@@ -89,38 +86,32 @@ const CreateUser = () => {
         newErrors.specialite = "La spécialité est requise";
     }
 
-    if (formData.role === "TECHNICIEN") {
-      if (!formData.service.trim()) newErrors.service = "Le service est requis";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
 
     try {
-      // TODO: Appel API
-      // await userService.create(formData);
-
-      // Simulation
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      console.log("Utilisateur créé:", formData);
-
-      // Redirection vers la liste
-      navigate("/director/users");
+      await userService.create(formData);
+      setToast({
+        show: true,
+        message: "Utilisateur créé avec succès",
+        type: "success",
+      });
+      setTimeout(() => navigate("/director/users"), 1500);
     } catch (error) {
       console.error("Erreur création:", error);
-      setErrors({ submit: "Erreur lors de la création" });
+      setToast({
+        show: true,
+        message: error.response?.data?.error || "Erreur lors de la création",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -128,6 +119,17 @@ const CreateUser = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast({ show: false, message: "", type: "" })}
+          />
+        </div>
+      )}
+
       {/* En-tête */}
       <div className="flex items-center gap-4 animate-slide-up">
         <Button
@@ -206,7 +208,6 @@ const CreateUser = () => {
                 { value: "ETUDIANT", label: "Étudiant" },
                 { value: "FORMATEUR", label: "Formateur" },
                 { value: "DIRECTEUR", label: "Directeur" },
-                { value: "TECHNICIEN", label: "Technicien" },
               ]}
               required
             />
@@ -221,36 +222,24 @@ const CreateUser = () => {
             style={{ animationDelay: "0.2s" }}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Matricule"
-                name="matricule"
-                value={formData.matricule}
-                onChange={handleChange}
-                error={errors.matricule}
-                placeholder="ETU2024001"
-                required
-              />
-
               <Select
                 label="Promotion"
-                name="promotion_id"
-                value={formData.promotion_id}
+                name="promotionId"
+                value={formData.promotionId}
                 onChange={handleChange}
-                error={errors.promotion_id}
-                options={[
-                  { value: "1", label: "Web Dev Full Stack 2024" },
-                  { value: "2", label: "Data Science & IA 2024" },
-                  { value: "3", label: "DevOps & Cloud 2024" },
-                  { value: "4", label: "Mobile Development 2024" },
-                ]}
+                error={errors.promotionId}
+                options={promotions.map((p) => ({
+                  value: p.id.toString(),
+                  label: `${p.nom} (${p.code})`,
+                }))}
                 required
               />
 
               <Input
                 label="Date de Naissance"
-                name="date_naissance"
+                name="dateNaissance"
                 type="date"
-                value={formData.date_naissance}
+                value={formData.dateNaissance}
                 onChange={handleChange}
               />
 
@@ -260,16 +249,6 @@ const CreateUser = () => {
                 value={formData.genre}
                 onChange={handleChange}
                 options={GENRES}
-              />
-
-              <Input
-                label="Année d'Inscription"
-                name="annee_inscription"
-                type="number"
-                value={formData.annee_inscription}
-                onChange={handleChange}
-                min="2020"
-                max="2030"
               />
             </div>
           </Card>
@@ -321,53 +300,6 @@ const CreateUser = () => {
               />
             </div>
           </Card>
-        )}
-
-        {/* Champs spécifiques TECHNICIEN */}
-        {formData.role === "TECHNICIEN" && (
-          <Card
-            title="Informations Technicien"
-            className="animate-slide-up"
-            style={{ animationDelay: "0.2s" }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input
-                label="Service"
-                name="service"
-                value={formData.service}
-                onChange={handleChange}
-                error={errors.service}
-                placeholder="Support Informatique"
-                required
-              />
-
-              <Input
-                label="Poste"
-                name="poste"
-                value={formData.poste}
-                onChange={handleChange}
-                placeholder="Technicien Réseau"
-              />
-
-              <div className="md:col-span-2">
-                <Textarea
-                  label="Permissions Spéciales"
-                  name="permissions_speciales"
-                  value={formData.permissions_speciales}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Décrivez les permissions spéciales si nécessaire..."
-                />
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Message d'erreur global */}
-        {errors.submit && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg animate-slide-down">
-            {errors.submit}
-          </div>
         )}
 
         {/* Boutons d'action */}

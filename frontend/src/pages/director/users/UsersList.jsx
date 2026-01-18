@@ -1,8 +1,3 @@
-// ============================================
-// GESTION DES UTILISATEURS - LISTE COMPLÈTE
-// Fichier: src/pages/director/users/UsersList.jsx
-// ============================================
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -22,76 +17,9 @@ import Select from "@/components/ui/Select";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
-import { ROLES } from "@/utils/constants";
-import { getInitials, classNames } from "@/utils/helpers";
-
-// DONNÉES MOCK (sera remplacé par les vrais appels API)
-const MOCK_USERS = [
-  {
-    id: 1,
-    nom: "Dupont",
-    prenom: "Jean",
-    email: "jean.dupont@academie.fr",
-    role: "DIRECTEUR",
-    matricule: null,
-    promotion: null,
-    telephone: "06 12 34 56 78",
-    est_actif: true,
-    date_creation: new Date("2024-01-15"),
-  },
-  {
-    id: 2,
-    nom: "Martin",
-    prenom: "Sophie",
-    email: "sophie.martin@academie.fr",
-    role: "FORMATEUR",
-    matricule: null,
-    promotion: null,
-    specialite: "Informatique",
-    grade: "Prof.",
-    telephone: "06 23 45 67 89",
-    est_actif: true,
-    date_creation: new Date("2024-02-10"),
-  },
-  {
-    id: 3,
-    nom: "Durand",
-    prenom: "Marie",
-    email: "marie.durand@academie.fr",
-    role: "ETUDIANT",
-    matricule: "ETU2024001",
-    promotion: "Web Dev 2024",
-    telephone: "06 34 56 78 90",
-    est_actif: true,
-    date_creation: new Date("2024-09-01"),
-  },
-  {
-    id: 4,
-    nom: "Bernard",
-    prenom: "Pierre",
-    email: "pierre.bernard@academie.fr",
-    role: "ETUDIANT",
-    matricule: "ETU2024002",
-    promotion: "Data Science",
-    telephone: "06 45 67 89 01",
-    est_actif: false,
-    date_creation: new Date("2024-09-01"),
-  },
-  {
-    id: 5,
-    nom: "Petit",
-    prenom: "Julie",
-    email: "julie.petit@academie.fr",
-    role: "FORMATEUR",
-    matricule: null,
-    promotion: null,
-    specialite: "Mathématiques",
-    grade: "Dr.",
-    telephone: "06 56 78 90 12",
-    est_actif: true,
-    date_creation: new Date("2024-03-20"),
-  },
-];
+import Toast from "@/components/ui/Toast";
+import { userService } from "@/services/user.service";
+import { getInitials } from "@/utils/helpers";
 
 const UsersList = () => {
   const navigate = useNavigate();
@@ -101,56 +29,80 @@ const UsersList = () => {
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, user: null });
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
   // Charger les utilisateurs
   useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        // TODO: Remplacer par l'appel API réel
-        // const data = await userService.getAll();
-        setTimeout(() => {
-          setUsers(MOCK_USERS);
-          setLoading(false);
-        }, 500);
-      } catch (error) {
-        console.error("Erreur chargement utilisateurs:", error);
-        setLoading(false);
-      }
-    };
-
     loadUsers();
   }, []);
 
-  // Filtrer les utilisateurs
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await userService.getAll({
+        role: roleFilter,
+        estActif: statusFilter,
+      });
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error("Erreur chargement utilisateurs:", error);
+      showToast("Erreur lors du chargement des utilisateurs", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Recharger quand les filtres changent
+  useEffect(() => {
+    if (!loading) {
+      loadUsers();
+    }
+  }, [roleFilter, statusFilter]);
+
+  // Filtrer les utilisateurs localement
   const filteredUsers = users.filter((user) => {
     const matchesSearch = `${user.nom} ${user.prenom} ${user.email}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
-    const matchesRole = !roleFilter || user.role === roleFilter;
-    const matchesStatus =
-      !statusFilter ||
-      (statusFilter === "actif" ? user.est_actif : !user.est_actif);
-    return matchesSearch && matchesRole && matchesStatus;
+    return matchesSearch;
   });
 
   // Statistiques
   const stats = {
     total: users.length,
-    actifs: users.filter((u) => u.est_actif).length,
-    inactifs: users.filter((u) => !u.est_actif).length,
+    actifs: users.filter((u) => u.estActif).length,
+    inactifs: users.filter((u) => !u.estActif).length,
     etudiants: users.filter((u) => u.role === "ETUDIANT").length,
   };
 
   // Supprimer un utilisateur
   const handleDelete = async (userId) => {
     try {
-      // TODO: Appel API
-      // await userService.delete(userId);
-      setUsers(users.filter((u) => u.id !== userId));
+      await userService.delete(userId);
+      showToast("Utilisateur supprimé avec succès", "success");
+      loadUsers();
       setDeleteModal({ isOpen: false, user: null });
     } catch (error) {
       console.error("Erreur suppression:", error);
+      showToast("Erreur lors de la suppression", "error");
     }
+  };
+
+  // Toggle statut
+  const handleToggleStatus = async (userId) => {
+    try {
+      await userService.toggleStatus(userId);
+      showToast("Statut modifié avec succès", "success");
+      loadUsers();
+    } catch (error) {
+      console.error("Erreur toggle:", error);
+      showToast("Erreur lors de la modification du statut", "error");
+    }
+  };
+
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: "", type: "" }), 3000);
   };
 
   // Couleur du badge selon le rôle
@@ -170,6 +122,9 @@ const UsersList = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast.show && <Toast message={toast.message} type={toast.type} />}
+
       {/* En-tête */}
       <div className="flex items-center justify-between animate-slide-up">
         <div>
@@ -235,7 +190,6 @@ const UsersList = () => {
               { value: "DIRECTEUR", label: "Directeur" },
               { value: "FORMATEUR", label: "Formateur" },
               { value: "ETUDIANT", label: "Étudiant" },
-              { value: "TECHNICIEN", label: "Technicien" },
             ]}
             icon={Filter}
           />
@@ -245,8 +199,8 @@ const UsersList = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             options={[
               { value: "", label: "Tous les statuts" },
-              { value: "actif", label: "Actifs uniquement" },
-              { value: "inactif", label: "Inactifs uniquement" },
+              { value: "true", label: "Actifs uniquement" },
+              { value: "false", label: "Inactifs uniquement" },
             ]}
           />
         </div>
@@ -323,20 +277,29 @@ const UsersList = () => {
                       </Badge>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.promotion || user.specialite || "-"}
+                      {user.promotion?.nom || user.specialite || "-"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {user.est_actif ? (
-                        <span className="flex items-center text-green-600">
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          <span className="text-sm font-medium">Actif</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center text-red-600">
-                          <XCircle className="w-4 h-4 mr-1" />
-                          <span className="text-sm font-medium">Inactif</span>
-                        </span>
-                      )}
+                      <button
+                        onClick={() => handleToggleStatus(user.id)}
+                        className="flex items-center gap-1 hover:opacity-75 transition-opacity"
+                      >
+                        {user.estActif ? (
+                          <>
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-600">
+                              Actif
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="w-4 h-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-600">
+                              Inactif
+                            </span>
+                          </>
+                        )}
+                      </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button

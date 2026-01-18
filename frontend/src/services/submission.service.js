@@ -1,37 +1,48 @@
-import api from './api';
+import api from "./api";
 
-const submissionService = {
-  // Soumet un travail
-  async submit(submissionData) {
-    const response = await api.post('/submissions', submissionData);
+export const submissionService = {
+  // Soumettre
+  async submitIndividual(affectationId, submissionData) {
+    const response = await api.post(
+      `/submissions/individual/${affectationId}`,
+      submissionData,
+    );
     return response.data;
   },
 
-  // Upload un fichier (avec FormData)
-  async uploadFile(file, assignmentId) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('assignmentId', assignmentId);
-    
-    const response = await api.post('/submissions/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+  async submitGroup(groupeId, submissionData) {
+    const response = await api.post(
+      `/submissions/group/${groupeId}`,
+      submissionData,
+    );
     return response.data;
   },
 
-  // Récupère les soumissions d'un travail
-  async getByWork(workId) {
-    const response = await api.get(`/works/${workId}/submissions`);
+  // Lister
+  async getByWork(travailId) {
+    const response = await api.get(`/submissions/work/${travailId}`);
     return response.data;
   },
 
-  // Récupère les soumissions d'un étudiant
-  async getByStudent(studentId) {
-    const response = await api.get(`/students/${studentId}/submissions`);
+  async getById(id) {
+    const response = await api.get(`/submissions/${id}`);
+    return response.data;
+  },
+
+  // Mes soumissions (Étudiant)
+  async getMySubmissions() {
+    const response = await api.get("/submissions/student/my-submissions");
+    return response.data;
+  },
+
+  // Modifier/Supprimer
+  async update(id, submissionData) {
+    const response = await api.put(`/submissions/${id}`, submissionData);
+    return response.data;
+  },
+
+  async delete(id) {
+    const response = await api.delete(`/submissions/${id}`);
     return response.data;
   },
 };
-
-export default submissionService;

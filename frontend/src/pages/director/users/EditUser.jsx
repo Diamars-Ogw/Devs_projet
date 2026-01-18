@@ -1,8 +1,3 @@
-// ============================================
-// MODIFICATION D'UTILISATEUR - PAGE COMPLÈTE
-// Fichier: src/pages/director/users/EditUser.jsx
-// ============================================
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -19,23 +14,11 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import Textarea from "@/components/ui/Textarea";
 import Loader from "@/components/ui/Loader";
+import Toast from "@/components/ui/Toast";
+import { userService } from "@/services/user.service";
+import { promotionService } from "@/services/promotion.service";
 import { GRADES_FORMATEUR, GENRES } from "@/utils/constants";
-
-// Données MOCK pour la démo
-const MOCK_USER = {
-  id: 2,
-  nom: "Martin",
-  prenom: "Sophie",
-  email: "sophie.martin@academie.fr",
-  role: "FORMATEUR",
-  telephone: "06 23 45 67 89",
-  specialite: "Informatique",
-  grade: "Prof.",
-  departement: "Sciences",
-  bureau: "Bâtiment A, Bureau 205",
-};
 
 const EditUser = () => {
   const navigate = useNavigate();
@@ -43,28 +26,30 @@ const EditUser = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState(null);
+  const [promotions, setPromotions] = useState([]);
   const [errors, setErrors] = useState({});
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
-  // Charger les données de l'utilisateur
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        // TODO: Appel API
-        // const data = await userService.getById(id);
-
-        // Simulation
-        setTimeout(() => {
-          setFormData(MOCK_USER);
-          setLoading(false);
-        }, 500);
-      } catch (error) {
-        console.error("Erreur chargement utilisateur:", error);
-        setLoading(false);
-      }
-    };
-
-    loadUser();
+    loadData();
   }, [id]);
+
+  const loadData = async () => {
+    try {
+      const [userData, promotionsData] = await Promise.all([
+        userService.getById(id),
+        promotionService.getAll({ estActive: "true" }),
+      ]);
+
+      setFormData(userData);
+      setPromotions(promotionsData.promotions || []);
+      setLoading(false);
+    } catch (error) {
+      console.error("Erreur chargement utilisateur:", error);
+      setToast({ show: true, message: "Erreur de chargement", type: "error" });
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -77,9 +62,9 @@ const EditUser = () => {
   const validate = () => {
     const newErrors = {};
 
-    if (!formData.nom.trim()) newErrors.nom = "Le nom est requis";
-    if (!formData.prenom.trim()) newErrors.prenom = "Le prénom est requis";
-    if (!formData.email.trim()) newErrors.email = "L'email est requis";
+    if (!formData.nom?.trim()) newErrors.nom = "Le nom est requis";
+    if (!formData.prenom?.trim()) newErrors.prenom = "Le prénom est requis";
+    if (!formData.email?.trim()) newErrors.email = "L'email est requis";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -93,16 +78,21 @@ const EditUser = () => {
     setSaving(true);
 
     try {
-      // TODO: Appel API
-      // await userService.update(id, formData);
-
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      console.log("Utilisateur modifié:", formData);
-      navigate("/director/users");
+      await userService.update(id, formData);
+      setToast({
+        show: true,
+        message: "Utilisateur modifié avec succès",
+        type: "success",
+      });
+      setTimeout(() => navigate("/director/users"), 1500);
     } catch (error) {
       console.error("Erreur modification:", error);
-      setErrors({ submit: "Erreur lors de la modification" });
+      setToast({
+        show: true,
+        message:
+          error.response?.data?.error || "Erreur lors de la modification",
+        type: "error",
+      });
     } finally {
       setSaving(false);
     }
@@ -125,6 +115,17 @@ const EditUser = () => {
 
   return (
     <div className="space-y-6">
+      {/* Toast */}
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast({ show: false, message: "", type: "" })}
+          />
+        </div>
+      )}
+
       {/* En-tête */}
       <div className="flex items-center gap-4 animate-slide-up">
         <Button
@@ -151,7 +152,7 @@ const EditUser = () => {
             <Input
               label="Nom"
               name="nom"
-              value={formData.nom}
+              value={formData.nom || ""}
               onChange={handleChange}
               error={errors.nom}
               icon={User}
@@ -161,7 +162,7 @@ const EditUser = () => {
             <Input
               label="Prénom"
               name="prenom"
-              value={formData.prenom}
+              value={formData.prenom || ""}
               onChange={handleChange}
               error={errors.prenom}
               icon={User}
@@ -172,7 +173,7 @@ const EditUser = () => {
               label="Email"
               name="email"
               type="email"
-              value={formData.email}
+              value={formData.email || ""}
               onChange={handleChange}
               error={errors.email}
               icon={Mail}
@@ -183,7 +184,7 @@ const EditUser = () => {
               label="Téléphone"
               name="telephone"
               type="tel"
-              value={formData.telephone}
+              value={formData.telephone || ""}
               onChange={handleChange}
               icon={Phone}
             />
@@ -235,10 +236,44 @@ const EditUser = () => {
           </Card>
         )}
 
-        {errors.submit && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {errors.submit}
-          </div>
+        {/* Champs spécifiques ÉTUDIANT */}
+        {formData.role === "ETUDIANT" && (
+          <Card title="Informations Étudiant" className="animate-slide-up">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Select
+                label="Promotion"
+                name="promotionId"
+                value={formData.promotionId?.toString() || ""}
+                onChange={handleChange}
+                options={promotions.map((p) => ({
+                  value: p.id.toString(),
+                  label: `${p.nom} (${p.code})`,
+                }))}
+              />
+
+              <Input
+                label="Date de Naissance"
+                name="dateNaissance"
+                type="date"
+                value={
+                  formData.dateNaissance
+                    ? new Date(formData.dateNaissance)
+                        .toISOString()
+                        .split("T")[0]
+                    : ""
+                }
+                onChange={handleChange}
+              />
+
+              <Select
+                label="Genre"
+                name="genre"
+                value={formData.genre || ""}
+                onChange={handleChange}
+                options={GENRES}
+              />
+            </div>
+          </Card>
         )}
 
         <div className="flex justify-end gap-4">

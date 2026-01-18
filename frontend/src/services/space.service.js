@@ -1,65 +1,57 @@
-import api from './api';
+import api from "./api";
 
-const spaceService = {
-  // Récupère tous les espaces pédagogiques
-  async getAll(filters = {}) {
-    const response = await api.get('/spaces', { params: filters });
+export const spaceService = {
+  // Matières
+  async getMatieres() {
+    const response = await api.get("/spaces/matieres");
     return response.data;
   },
 
-  // Récupère un espace par ID
+  async createMatiere(matiereData) {
+    const response = await api.post("/spaces/matieres", matiereData);
+    return response.data;
+  },
+
+  // Espaces
+  async getAll(filters = {}) {
+    const params = new URLSearchParams(filters).toString();
+    const response = await api.get(`/spaces${params ? "?" + params : ""}`);
+    return response.data;
+  },
+
   async getById(id) {
     const response = await api.get(`/spaces/${id}`);
     return response.data;
   },
 
-  // Crée un nouvel espace pédagogique
   async create(spaceData) {
-    const response = await api.post('/spaces', spaceData);
+    const response = await api.post("/spaces", spaceData);
     return response.data;
   },
 
-  // Met à jour un espace
   async update(id, spaceData) {
     const response = await api.put(`/spaces/${id}`, spaceData);
     return response.data;
   },
 
-  // Supprime un espace
   async delete(id) {
     const response = await api.delete(`/spaces/${id}`);
     return response.data;
   },
 
-  // Inscrit des étudiants dans un espace
-  async enrollStudents(id, studentIds) {
-    const response = await api.post(`/spaces/${id}/enroll`, { studentIds });
+  // Inscriptions
+  async enrollStudents(id, etudiantIds) {
+    const response = await api.post(`/spaces/${id}/enroll`, { etudiantIds });
     return response.data;
   },
 
-  // Retire un étudiant d'un espace
-  async unenrollStudent(spaceId, studentId) {
-    const response = await api.delete(`/spaces/${spaceId}/students/${studentId}`);
+  async unenrollStudent(id, etudiantId) {
+    const response = await api.delete(`/spaces/${id}/unenroll/${etudiantId}`);
     return response.data;
   },
 
-  // Récupère les étudiants inscrits
-  async getEnrolledStudents(id) {
-    const response = await api.get(`/spaces/${id}/students`);
-    return response.data;
-  },
-
-  // Ajoute un formateur secondaire
-  async addSecondaryTeacher(spaceId, teacherId) {
-    const response = await api.post(`/spaces/${spaceId}/teachers/${teacherId}`);
-    return response.data;
-  },
-
-  // Retire un formateur secondaire
-  async removeSecondaryTeacher(spaceId, teacherId) {
-    const response = await api.delete(`/spaces/${spaceId}/teachers/${teacherId}`);
+  async getAvailableStudents(id) {
+    const response = await api.get(`/spaces/${id}/available-students`);
     return response.data;
   },
 };
-
-export default spaceService;

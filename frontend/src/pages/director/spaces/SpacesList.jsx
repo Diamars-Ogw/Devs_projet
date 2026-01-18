@@ -5,50 +5,49 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Loader from "@/components/ui/Loader";
-
-const MOCK_SPACES = [
-  {
-    id: 1,
-    nom: "React Avancé",
-    promotion: "Web Dev 2024",
-    formateur: "Jean Martin",
-    nb_etudiants: 45,
-    semestre: 1,
-  },
-  {
-    id: 2,
-    nom: "Machine Learning",
-    promotion: "Data Science",
-    formateur: "Sophie Bernard",
-    nb_etudiants: 38,
-    semestre: 1,
-  },
-  {
-    id: 3,
-    nom: "Kubernetes",
-    promotion: "DevOps 2024",
-    formateur: "Pierre Laurent",
-    nb_etudiants: 32,
-    semestre: 2,
-  },
-];
+import Toast from "@/components/ui/Toast";
+import { spaceService } from "@/services/space.service";
 
 const SpacesList = () => {
   const navigate = useNavigate();
   const [spaces, setSpaces] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: "", type: "" });
 
   useEffect(() => {
-    setTimeout(() => {
-      setSpaces(MOCK_SPACES);
-      setLoading(false);
-    }, 500);
+    loadSpaces();
   }, []);
 
-  if (loading) return <Loader />;
+  const loadSpaces = async () => {
+    try {
+      const data = await spaceService.getAll();
+      setSpaces(data.espaces || []);
+      setLoading(false);
+    } catch (error) {
+      console.error("Erreur chargement espaces:", error);
+      setToast({
+        show: true,
+        message: "Erreur lors du chargement",
+        type: "error",
+      });
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <Loader text="Chargement des espaces..." />;
 
   return (
     <div className="space-y-6">
+      {toast.show && (
+        <div className="fixed top-4 right-4 z-50">
+          <Toast
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast({ show: false, message: "", type: "" })}
+          />
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -63,54 +62,77 @@ const SpacesList = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {spaces.map((space) => (
-          <Card key={space.id} className="card-hover">
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {space.nom}
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">{space.promotion}</p>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Users className="w-4 h-4" />
-                  <span>{space.nb_etudiants} étudiants</span>
+      {spaces.length === 0 ? (
+        <Card>
+          <div className="text-center py-12 text-gray-500">
+            <p>Aucun espace pédagogique trouvé</p>
+            <Button
+              onClick={() => navigate("/director/spaces/create")}
+              className="mt-4"
+            >
+              Créer le premier espace
+            </Button>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {spaces.map((space) => (
+            <Card key={space.id} className="card-hover">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {space.nom}
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {space.promotion?.nom || "Aucune promotion"}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <BookOpen className="w-4 h-4" />
-                  <span>Formateur: {space.formateur}</span>
-                </div>
-                <Badge variant="info">Semestre {space.semestre}</Badge>
-              </div>
 
-              <div className="flex gap-2 pt-4 border-t">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  fullWidth
-                  onClick={() => navigate(`/director/spaces/edit/${space.id}`)}
-                >
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Modifier
-                </Button>
-                <Button
-                  size="sm"
-                  fullWidth
-                  onClick={() =>
-                    navigate(`/director/spaces/${space.id}/enroll`)
-                  }
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Inscrire
-                </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Users className="w-4 h-4" />
+                    <span>{space.nombreInscrits || 0} étudiants</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <BookOpen className="w-4 h-4" />
+                    <span>
+                      Formateur: {space.formateur?.nom}{" "}
+                      {space.formateur?.prenom}
+                    </span>
+                  </div>
+                  {space.semestre && (
+                    <Badge variant="info">Semestre {space.semestre}</Badge>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    fullWidth
+                    onClick={() =>
+                      navigate(`/director/spaces/edit/${space.id}`)
+                    }
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Modifier
+                  </Button>
+                  <Button
+                    size="sm"
+                    fullWidth
+                    onClick={() =>
+                      navigate(`/director/spaces/${space.id}/enroll`)
+                    }
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Inscrire
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
