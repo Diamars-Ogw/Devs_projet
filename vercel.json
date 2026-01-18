@@ -1,0 +1,4 @@
+{.{git{,ignore},vscode},README.md,backend,frontend} 
+  "rewrites": 
+{.{git{,ignore},vscode},README.md,backend,frontend}  "source": "/(.*)", "destination": "/" 
+  
