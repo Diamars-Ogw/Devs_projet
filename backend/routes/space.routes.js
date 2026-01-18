@@ -413,28 +413,39 @@ router.post(
         });
       }
 
-      // Inscrire les étudiants
-      const inscriptions = await prisma.$transaction(
-        etudiantIds.map(
-          (etudiantId) =>
-            prisma.inscriptionEtudiant
-              .create({
-                data: {
-                  espacePedagogiqueId: parseInt(id),
-                  etudiantId: parseInt(etudiantId),
-                },
-              })
-              .catch(() => null), // Ignorer les doublons
-        ),
+      // ✅ FIX: Inscrire les étudiants avec gestion des doublons
+      const results = await Promise.allSettled(
+        etudiantIds.map(async (etudiantId) => {
+          try {
+            return await prisma.inscriptionEtudiant.create({
+              data: {
+                espacePedagogiqueId: parseInt(id),
+                etudiantId: parseInt(etudiantId),
+              },
+            });
+          } catch (error) {
+            // Ignorer les erreurs de contrainte unique (doublons)
+            if (error.code === "P2002") {
+              return null;
+            }
+            throw error;
+          }
+        }),
       );
 
-      const successCount = inscriptions.filter((i) => i !== null).length;
+      // Compter les inscriptions réussies
+      const inscriptions = results
+        .filter((r) => r.status === "fulfilled" && r.value !== null)
+        .map((r) => r.value);
+
+      const successCount = inscriptions.length;
 
       res.json({
         message: `${successCount} étudiant(s) inscrit(s) avec succès`,
-        inscriptions: inscriptions.filter((i) => i !== null),
+        inscriptions,
       });
     } catch (error) {
+      console.error("Erreur inscription étudiants:", error);
       next(error);
     }
   },

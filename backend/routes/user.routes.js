@@ -151,6 +151,16 @@ router.post("/", authorizeRoles("DIRECTEUR"), async (req, res, next) => {
         const count = await tx.etudiant.count();
         const matricule = `ETU${year}${String(count + 1).padStart(4, "0")}`;
 
+        // ✅ FIX: Convertir la date en format ISO-8601 DateTime
+        let dateNaissanceISO = null;
+        if (otherData.dateNaissance) {
+          // Si la date est au format "YYYY-MM-DD", ajouter l'heure
+          const dateStr = otherData.dateNaissance.includes("T")
+            ? otherData.dateNaissance
+            : otherData.dateNaissance + "T00:00:00.000Z";
+          dateNaissanceISO = new Date(dateStr).toISOString();
+        }
+
         profile = await tx.etudiant.create({
           data: {
             compteId: compte.id,
@@ -161,7 +171,7 @@ router.post("/", authorizeRoles("DIRECTEUR"), async (req, res, next) => {
             promotionId: otherData.promotionId
               ? parseInt(otherData.promotionId)
               : null,
-            dateNaissance: otherData.dateNaissance,
+            dateNaissance: dateNaissanceISO,
             genre: otherData.genre,
             anneeInscription: year,
           },
@@ -188,6 +198,7 @@ router.post("/", authorizeRoles("DIRECTEUR"), async (req, res, next) => {
       }),
     });
   } catch (error) {
+    console.error("Erreur création utilisateur:", error);
     next(error);
   }
 });
@@ -328,6 +339,15 @@ router.put("/:id", authorizeRoles("DIRECTEUR"), async (req, res, next) => {
           },
         });
       } else if (compte.role === "ETUDIANT" && compte.etudiant) {
+        // ✅ FIX: Convertir la date en format ISO-8601 DateTime
+        let dateNaissanceISO = undefined;
+        if (otherData.dateNaissance) {
+          const dateStr = otherData.dateNaissance.includes("T")
+            ? otherData.dateNaissance
+            : otherData.dateNaissance + "T00:00:00.000Z";
+          dateNaissanceISO = new Date(dateStr).toISOString();
+        }
+
         updatedProfile = await tx.etudiant.update({
           where: { id: compte.etudiant.id },
           data: {
@@ -341,8 +361,8 @@ router.put("/:id", authorizeRoles("DIRECTEUR"), async (req, res, next) => {
                 ? parseInt(otherData.promotionId)
                 : null,
             }),
-            ...(otherData.dateNaissance && {
-              dateNaissance: new Date(otherData.dateNaissance),
+            ...(dateNaissanceISO !== undefined && {
+              dateNaissance: dateNaissanceISO,
             }),
             ...(otherData.genre !== undefined && { genre: otherData.genre }),
           },
@@ -360,6 +380,7 @@ router.put("/:id", authorizeRoles("DIRECTEUR"), async (req, res, next) => {
       },
     });
   } catch (error) {
+    console.error("Erreur modification utilisateur:", error);
     next(error);
   }
 });
